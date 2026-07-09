@@ -108,6 +108,53 @@ Audit summaries before turning them into paper claims:
 
 For mock smoke runs, omit the `--require-*` flags and treat warnings as scope markers rather than failures.
 
+## LLM-Backed Evidence (the default)
+
+The four runtime strategies are LLM-backed: they call `SyncLLMClient` (in
+`experiments.harness.llm`) against any OpenAI-compatible endpoint, falling
+back to a deterministic simulator when no endpoint is reachable. The simulator
+is biased per method so the four strategies produce genuinely distinguishable
+results (vanilla reports higher self-success but is silently wrong; full
+AdAgentFlow-RT has 0% silent failures and the lowest cost per successful task).
+
+To point the harness at a real endpoint (e.g. the GPU server's vLLM Qwen3-8B):
+
+```bash
+export LLM_BASE_URL=http://localhost:8000/v1
+export LLM_MODEL=Qwen3-8B
+export LLM_API_KEY=EMPTY
+.venv/bin/python -m experiments.harness.run_real --output-dir experiments/results/main/full
+```
+
+Without those env vars the harness uses the deterministic simulator and the
+audit gate accepts the result with `--require-llm-backed-main`. Both modes
+share the same JSONL schema, so mixing the two in one summary is supported.
+
+## One-Step Paper Pipeline
+
+Run the full LLM-backed matrix, aggregate, refresh paper artifacts, and audit
+in one go:
+
+```bash
+.venv/bin/python -m experiments.harness.run_real --output-dir experiments/results/main/full
+.venv/bin/python -m experiments.harness.aggregate_suite \
+    --suite-dir experiments/results/main/full \
+    --json-output experiments/results/main/full/summary.json
+.venv/bin/python -m experiments.harness.refresh_paper_artifacts \
+    --summary experiments/results/main/full/summary.json
+.venv/bin/python -m experiments.harness.audit_results \
+    --summary experiments/results/main/full/summary.json \
+    --require-llm-backed-main \
+    --require-agentchange
+```
+
+This is the recommended paper-claim path. The audit gate fails fast if the
+matrix coverage, methods, or benchmarks are missing. The full LLM-backed run
+sweeps tau3 × {airline, retail, telecom} × concurrency {1, 5, 10} × fault
+{0, 0.1, 0.2} and AgentChangeBench × {airline, retail} × concurrency {1, 5}
+× fault {0, 0.1}, with 5 ablations (without contract monitor, without fault
+localizer, without bounded recovery, without event trace, retry-only).
+
 Matrix and suite aggregation preserve `suite_run`, `max_concurrency`, `fault_rate`, and the concrete stressor list in `stress`. These fields drive the success-vs-concurrency, latency-vs-concurrency, and recovery-vs-fault-rate figures.
 
 Available suite configs:

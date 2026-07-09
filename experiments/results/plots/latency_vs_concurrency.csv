@@ -1,7 +1,0 @@
-ablation,benchmark,concurrency,domain,fault_rate,method,metric,value
-,tau3,smoke,airline,mixed,adagentflow_rt,p95_latency_ms,1500
-,tau3,smoke,airline,mixed,retry_only,p95_latency_ms,2000
-,tau3,smoke,airline,mixed,schema_only,p95_latency_ms,1000
-,tau3,smoke,airline,mixed,vanilla,p95_latency_ms,1200
-,tau3,smoke,airline,mixed,adagentflow_rt,p95_latency_ms,1500
-without_contract_monitor,tau3,smoke,airline,mixed,adagentflow_rt,p95_latency_ms,1200

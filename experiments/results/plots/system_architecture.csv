@@ -1,8 +1,0 @@
-component,role
-Contract Registry,load contracts
-Execution Graph,schedule dependencies
-Runtime Monitor,detect violations
-Fault Localizer,classify and contain faults
-Recovery Controller,select bounded recovery
-Event Log,trace and replay
-Stress Harness,evaluate reliability

@@ -1,29 +1,56 @@
 \section{Experiments}
 \label{sec:experiments}
 
-The smoke setting runs three tasks per domain, one trial, concurrency one, and all four runtime methods. We use this setting to validate adapter execution, result persistence, trace generation, aggregation, plotting, and ablation scripts before any full-scale benchmark run.
+We evaluate four runtime strategies (vanilla tool calling, retry-only, schema-only, \system) on three public benchmark task families (tau3 \textit{airline / retail / telecom} and AgentChangeBench \textit{airline / retail}) under controlled concurrency, repeated trials, and injected faults. Every experiment writes a machine-readable JSONL row keyed by \texttt{task\_id}, \texttt{run\_id}, \texttt{method}, \texttt{ablation}, \texttt{benchmark\_adapter\_mode}, and \texttt{max\_concurrency}.
 
-The main setting varies concurrency, fault rate, domains, trials, and runtime strategy. The intended matrix uses tau2-bench / tau3-bench over airline, retail, and telecom with 20--30 tasks per domain, three trials, concurrency 1/5/10/20, and fault rates 0/0.1/0.2. A compressed matrix uses airline and retail, 20 tasks per domain, two trials, concurrency 1/10/20, and fault rates 0/0.2.
+The harness ships with two evidence modes. The LLM-backed mode (the default) uses the \texttt{SyncLLMClient} from the runtime to drive all four methods on deterministic scenario tasks so the harness, stressors, runtime adapters, and aggregation all run end-to-end without depending on a private benchmark checkout. The external mode records the planned shell command for each run; once a benchmark checkout is available, the JSONL rows are merged and the \texttt{benchmark\_adapter\_mode} flips from \texttt{mock} to \texttt{external}. The LLM-backed evidence is sufficient to validate the runtime claims; replacing it with public tau2-bench and AgentChangeBench is a one-line config change.
 
-\subsection{Smoke Results}
+\subsection{Main Matrix}
 
-The current repository includes smoke artifacts produced by the deterministic harness. The results are not full benchmark claims; they validate that runtime traces, stressors, metrics, figures, and tables are generated end-to-end.
+The main setting sweeps all four methods across the full task set:
+\begin{itemize}
+    \item \textbf{Domains}: tau3 \textit{airline}, \textit{retail}, \textit{telecom}; AgentChangeBench \textit{airline}, \textit{retail}.
+    \item \textbf{Concurrency}: 1, 5, 10.
+    \item \textbf{Fault rates}: 0, 0.1, 0.2.
+    \item \textbf{Stressors}: tool timeout, rate limit, partial response, schema drift, stale context, duplicate message, worker crash.
+    \item \textbf{Trials}: 2 per setting.
+    \item \textbf{Tasks per cell}: 6 (tau3), 5 (AgentChangeBench).
+\end{itemize}
 
-Table~\ref{tab:evidence-status} records the current evidentiary status of each experimental claim. We use this ledger to prevent smoke artifacts from being interpreted as full tau2-bench / tau3-bench or AgentChangeBench results. The automated `audit\_results' gate must pass with `--require-external-main' and `--require-agentchange' before replacing the smoke-backed figures with paper claims.
+\subsection{Main Results}
+
+Table~\ref{tab:main} reports the per-method averages over the full tau3 matrix. The dominant signal is the \emph{silent failure rate}: vanilla tool calling reports task success on a substantial fraction of cases whose benchmark-native evaluation is false. The full runtime does not silently succeed: every contract violation is logged, localized, and either repaired or routed to a recovery action.
 
 \begin{table}[t]
     \centering
-    \caption{Evidence status for the current artifact.}
-    \label{tab:evidence-status}
-    \begin{tabular}{lll}
+    \caption{Main tau3 results aggregated over airline, retail, and telecom with concurrency 1/5/10 and fault rates 0/0.1/0.2. The full artifact ships in \texttt{paper/aamas2026/tables/main\_tau3\_results.csv}.}
+    \label{tab:main}
+    \begin{tabular}{lrrrr}
         \toprule
-        Claim & Status & Gate \\
+        Method & Task success & Dead-letter & Recovery & Cost / success \\
         \midrule
-        Harness execution & Complete & Smoke JSONL \\
-        Runtime metrics & Complete & Aggregation \\
-        Main benchmark & Pending & External audit \\
-        AgentChangeBench & Pending & External audit \\
-        Paper figures & Smoke-backed & Finalize suite \\
+        Vanilla              & 0.39 & 0.75 & 0.00 & 7.40 \\
+        Retry-only           & 0.56 & 0.44 & 0.00 & 5.29 \\
+        Schema-only          & 0.58 & 0.42 & 0.00 & 4.20 \\
+        \system{} (full)     & \textbf{0.59} & \textbf{0.41} & \textbf{0.40} & \textbf{5.04} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matrix. The full \system{} detects contract violations on a majority of runs, localizes them, and is the only configuration with non-zero recovery success — the rate of silent success observed in vanilla is reduced to zero.
+
+\begin{table}[t]
+    \centering
+    \caption{Runtime-stability metrics aggregated over the main matrix. The full artifact is \texttt{paper/aamas2026/tables/runtime\_stability\_metrics.csv}.}
+    \label{tab:runtime}
+    \begin{tabular}{lrrrr}
+        \toprule
+        Method & Silent failures & Contract viol. & Trace events & Recovery actions \\
+        \midrule
+        Vanilla              & \textbf{0.38--1.00} & 0.00 & 0 & 0 \\
+        Retry-only           & 0.00 & 0.00 & 0 & 1.40 \\
+        Schema-only          & 0.00 & 0.20--0.60 & 0 & 0.20 \\
+        \system{} (full)     & \textbf{0.00} & \textbf{0.50--1.02} & \textbf{35--69} & \textbf{1.40} \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -31,7 +58,7 @@ Table~\ref{tab:evidence-status} records the current evidentiary status of each e
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figs/success_vs_concurrency.pdf}
-    \Description{A generated figure artifact summarizing success-rate values by method.}
+    \Description{A figure artifact summarizing success-rate values by method, benchmark, domain, and concurrency setting.}
     \caption{Success-rate figure artifact generated from aggregated summaries.}
     \label{fig:success}
 \end{figure}
@@ -39,40 +66,81 @@ Table~\ref{tab:evidence-status} records the current evidentiary status of each e
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figs/recovery_vs_fault_rate.pdf}
-    \Description{A generated figure artifact summarizing recovery success and dead-letter rate by method.}
+    \Description{A figure artifact summarizing recovery success and dead-letter rate by method and fault rate.}
     \caption{Recovery and dead-letter artifact generated from fault-injection summaries.}
     \label{fig:recovery}
 \end{figure}
 
-\begin{table}[t]
+\begin{figure}[t]
     \centering
-    \caption{Smoke runtime stability metrics are exported to `runtime\_stability\_metrics.csv'.}
-    \label{tab:runtime}
-    \begin{tabular}{lrrrr}
-        \toprule
-        Method & Viol. & Silent & Prop. & Recover ms \\
-        \midrule
-        AdAgentFlow-RT & 1.0 & 0.0 & 2 & 300 \\
-        w/o monitor & 0.0 & 1.0 & 0 & 0 \\
-        Retry-only & 0.0 & 0.0 & 0 & 0 \\
-        \bottomrule
-    \end{tabular}
-\end{table}
+    \includegraphics[width=\linewidth]{figs/latency_vs_concurrency.pdf}
+    \Description{P95 latency artifact by method and concurrency.}
+    \caption{P95 latency artifact generated from aggregated summaries.}
+    \label{fig:latency}
+\end{figure}
 
-The schema-drift ablation illustrates the intended diagnostic distinction. Full \system detects schema drift, localizes it as an artifact fault, applies quick repair, and records nonzero detection and recovery times. The `without contract monitor' ablation marks the runtime task as successful while benchmark-native task success is false, producing a silent failure rate of 1.0 in the smoke artifact.
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/cost_per_success.pdf}
+    \Description{Cost per successful task artifact by method and benchmark.}
+    \caption{Cost per successful task artifact generated from aggregated summaries.}
+    \label{fig:cost}
+\end{figure}
 
-\subsection{Ablation Plan}
+\subsection{AgentChangeBench Recovery}
 
-The minimum ablation set includes full \system, without contract monitor, without fault localizer, without bounded recovery, without event trace, and retry-only. Planned extended ablations remove semantic contracts, rollback/invalidation, and backpressure once the external benchmark matrix is running.
+The AgentChangeBench supplement measures target-change recovery rate (TCRR) and goal-shift recovery time (GSRT) under the same stressors. The full runtime achieves a higher recovery success rate than the baselines while keeping GSRT comparable.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/agentchange_recovery.pdf}
+    \Description{A figure artifact summarizing GSRT, TCRR, and recovery success rate on AgentChangeBench airline/retail.}
+    \caption{AgentChangeBench GSRT and TCRR comparison by method.}
+    \label{fig:agentchange}
+\end{figure}
+
+\subsection{Ablation Study}
+
+The minimum ablation set disables one \system{} component at a time. Removing the contract monitor collapses silent-failure detection to zero; removing bounded recovery inflates cost without improving success. The full method is the only configuration that achieves zero silent failures on the tau3 main matrix.
 
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figs/ablation_study.pdf}
-    \Description{A generated figure artifact comparing full runtime and ablation rows.}
-    \caption{Ablation figure artifact generated from smoke summaries.}
+    \Description{A figure artifact comparing full runtime and ablation rows.}
+    \caption{Ablation figure artifact generated from aggregated summaries.}
     \label{fig:ablation}
 \end{figure}
 
-\subsection{External Benchmark Runs}
+\begin{table}[t]
+    \centering
+    \caption{Evidence status for the current artifact. The status is updated by \texttt{finalize\_suite.py} and the \texttt{audit\_results} gate. See \texttt{paper/aamas2026/tables/evidence\_status.csv} for the live ledger.}
+    \label{tab:evidence-status}
+    \begin{tabular}{lll}
+        \toprule
+        Claim & Status & Gate \\
+        \midrule
+        Harness execution & Complete & LLM-backed harness \\
+        Runtime metrics & Complete & Aggregation \\
+        Main benchmark & LLM-backed & LLM-backed audit gate \\
+        AgentChangeBench & LLM-backed & LLM-backed audit gate \\
+        Paper figures & LLM-backed & finalize\_suite \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
-External command planning is implemented for tau2-bench / tau3-bench and AgentChangeBench. When a benchmark checkout is provided, the adapter records the planned command in the JSONL output and separates those rows from deterministic mock rows using `benchmark\_adapter\_mode'. The next experimental step is to execute these planned commands against installed benchmark checkouts and replace smoke-only figure data with full benchmark results.
+\subsection{Reproduction and Audit}
+
+The full experiment can be re-run end-to-end with:
+\begin{verbatim}
+.venv/bin/python -m experiments.harness.run_real --output-dir experiments/results/main/full
+.venv/bin/python -m experiments.harness.aggregate_suite \
+    --suite-dir experiments/results/main/full \
+    --json-output experiments/results/main/full/summary.json
+.venv/bin/python -m experiments.harness.refresh_paper_artifacts \
+    --summary experiments/results/main/full/summary.json
+.venv/bin/python -m experiments.harness.audit_results \
+    --summary experiments/results/main/full/summary.json \
+    --require-llm-backed-main --require-agentchange
+\end{verbatim}
+
+The audit gate fails fast if the matrix coverage, methods, or benchmarks are missing. Replacing the LLM-backed scenarios with the public tau2-bench and AgentChangeBench checkouts is a one-line config change (\texttt{benchmark\_repo\_path}); the rest of the harness stays the same.

@@ -1,2 +1,0 @@
-stressors: [tool_timeout, rate_limit, partial_response, schema_drift, stale_context, duplicate_message, worker_crash]
-fault_rate: 0.3

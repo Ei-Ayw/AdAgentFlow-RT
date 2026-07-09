@@ -1,1 +1,0 @@
-"""Production-stress evaluation harness."""

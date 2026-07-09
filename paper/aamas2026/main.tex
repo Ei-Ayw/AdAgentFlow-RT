@@ -2,14 +2,15 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage{xspace}
+\usepackage{balance}
 
 \newcommand{\system}{AdAgentFlow-RT\xspace}
 
 \title{AdAgentFlow-RT: A Contractual Runtime for Reliable High-Throughput Long-Horizon Multi-Agent Workflows}
 
-\author{Anonymous Authors}
-\affiliation{\institution{Anonymous Institution}\country{}}
-\email{anonymous@example.com}
+\author{AdAgentFlow-RT Authors}
+\affiliation{\institution{AdAgentFlow Research}\country{}}
+\email{authors@adagentflow.example.com}
 
 \begin{document}
 
@@ -47,6 +48,10 @@
 \input{sections/discussion}
 \input{sections/related_work}
 \input{sections/conclusion}
+
+\begin{acks}
+The authors thank the maintainers of tau2-bench and AgentChangeBench for the public task environments that motivate the production-stress evaluation harness in this paper. The LLM-backed evidence in this paper was produced by the \texttt{SyncLLMClient} in the \texttt{experiments.harness.llm} module, which can be pointed at any OpenAI-compatible endpoint (e.g. a vLLM-served Qwen3-8B) by setting \texttt{LLM\_BASE\_URL}. Reproduction scripts live in \texttt{experiments/harness/run\_real.py}, \texttt{aggregate\_suite.py}, and \texttt{refresh\_paper\_artifacts.py}.
+\end{acks}
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{refs}

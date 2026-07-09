@@ -1,1 +1,0 @@
-"""Runtime strategy adapters."""

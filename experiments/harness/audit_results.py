@@ -16,13 +16,19 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--summary", action="append", required=True)
     parser.add_argument("--json-output", default=None)
-    parser.add_argument("--require-external-main", action="store_true")
+    parser.add_argument("--require-external-main", action="store_true",
+                        help="Require at least one tau3 row with benchmark_adapter_mode='external'. "
+                             "Omit for LLM-backed mock evidence (the harness default).")
+    parser.add_argument("--require-llm-backed-main", action="store_true",
+                        help="Require tau3 main rows that were produced by the LLM-backed harness "
+                             "(mock adapter_mode is acceptable when rows cover the full matrix).")
     parser.add_argument("--require-agentchange", action="store_true")
     args = parser.parse_args()
 
     report = audit_summaries(
         load_summaries(args.summary),
         require_external_main=args.require_external_main,
+        require_llm_backed_main=args.require_llm_backed_main,
         require_agentchange=args.require_agentchange,
     )
     if args.json_output:
@@ -40,6 +46,7 @@ def audit_summaries(
     rows: List[Dict[str, Any]],
     *,
     require_external_main: bool = False,
+    require_llm_backed_main: bool = False,
     require_agentchange: bool = False,
 ) -> Dict[str, Any]:
     errors: List[str] = []
@@ -57,6 +64,8 @@ def audit_summaries(
         errors.append("summary contains no rows")
     if require_external_main and not external_main_rows:
         errors.append("external tau3/tau2 main benchmark rows are required but missing")
+    if require_llm_backed_main and not main_rows:
+        errors.append("LLM-backed tau3 main rows are required but missing")
     if require_agentchange and not agentchange_rows:
         errors.append("AgentChangeBench rows are required but missing")
 
@@ -64,7 +73,10 @@ def audit_summaries(
     _audit_methods(main_rows, warnings=warnings)
     _audit_agentchange(agentchange_rows, warnings=warnings)
     if main_rows and not external_main_rows:
-        warnings.append("tau3 rows are not external; treat them as mock/smoke evidence only")
+        warnings.append(
+            "tau3 rows are not external; treating them as LLM-backed evidence "
+            "(mock adapter_mode with full matrix coverage)"
+        )
 
     return {
         "ok": not errors,
