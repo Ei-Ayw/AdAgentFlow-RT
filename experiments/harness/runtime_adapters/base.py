@@ -22,6 +22,8 @@ class RuntimeResult:
     native_metrics: Dict[str, Any] = field(default_factory=dict)
     runtime_metrics: Dict[str, Any] = field(default_factory=dict)
     events: List[Dict[str, Any]] = field(default_factory=list)
+    trajectory_path: Optional[str] = None
+    runtime_trace_path: Optional[str] = None
     latency_ms: int = 0
     tool_calls: int = 0
     llm_calls: int = 0

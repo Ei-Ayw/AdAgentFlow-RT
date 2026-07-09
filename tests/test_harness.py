@@ -10,6 +10,7 @@ from experiments.harness.benchmark_adapters.agentchange_adapter import AgentChan
 from experiments.harness.benchmark_adapters.tau3_adapter import Tau3BenchmarkAdapter
 from experiments.harness.config import config_methods, config_stressors, load_simple_config
 from experiments.harness.export_paper_tables import load_summaries, write_failure_breakdown, write_table
+from experiments.harness.import_external_results import import_external_results
 from experiments.harness.aggregate_suite import main as aggregate_suite_main
 from experiments.harness.metrics.runtime_metrics import compute_runtime_metrics
 from experiments.harness.metrics.trace_metrics import compute_trace_metrics
@@ -175,6 +176,77 @@ def test_external_adapter_missing_repo_has_clear_error():
         assert "mock smoke tasks" in str(exc)
     else:
         raise AssertionError("expected missing repo error")
+
+
+def test_import_external_results_normalizes_agentchange_json(tmp_path):
+    source = tmp_path / "agentchange_results.json"
+    source.write_text(
+        json.dumps(
+            {
+                "results": [
+                    {
+                        "example_id": "retail_change_1",
+                        "trial": 2,
+                        "passed": True,
+                        "metrics": {"TSR": 0.8, "TUE": 4},
+                        "TCRR": 0.75,
+                        "GSRT": 11.2,
+                        "duration_ms": 3400,
+                        "num_tool_calls": 7,
+                        "num_llm_calls": 3,
+                        "trajectory_path": "runs/retail_change_1.json",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    [result] = import_external_results(
+        input_path=source,
+        benchmark="agentchange",
+        domain="retail",
+        method="external_native",
+    )
+
+    assert result.benchmark == "agentchange"
+    assert result.domain == "retail"
+    assert result.task_id == "retail_change_1"
+    assert result.trial_id == 2
+    assert result.success is True
+    assert result.benchmark_adapter_mode == "external"
+    assert result.native_metrics["TSR"] == 0.8
+    assert result.native_metrics["TCRR"] == 0.75
+    assert result.native_metrics["GSRT"] == 11.2
+    assert result.trajectory_path == "runs/retail_change_1.json"
+    assert result.latency_ms == 3400
+    assert result.tool_calls == 7
+    assert result.llm_calls == 3
+
+
+def test_import_external_results_jsonl_feeds_existing_aggregator(tmp_path):
+    source = tmp_path / "tau3.jsonl"
+    output = tmp_path / "normalized.jsonl"
+    source.write_text(
+        "\n".join(
+            [
+                json.dumps({"task_id": "airline_1", "success": True, "latency_ms": 1000, "tool_calls": 2, "llm_calls": 1}),
+                json.dumps({"task_id": "airline_2", "success": False, "error": "policy failure"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    rows = import_external_results(input_path=source, benchmark="tau3", domain="airline", method="external_native")
+    output.write_text("\n".join(json.dumps(row.to_dict()) for row in rows) + "\n", encoding="utf-8")
+
+    metrics = compute_runtime_metrics(rows)
+
+    assert len(rows) == 2
+    assert rows[0].benchmark_adapter_mode == "external"
+    assert rows[1].dead_letter is False
+    assert metrics["total_tasks"] == 2
+    assert metrics["task_success_rate"] == 0.5
 
 
 def test_export_paper_tables_writes_runtime_csvs(tmp_path):

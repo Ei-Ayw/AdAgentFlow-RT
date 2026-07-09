@@ -101,6 +101,30 @@ uv run tau2 run --domain <domain> --agent-llm <model> --user-llm <model> --num-t
 
 Rows written by the harness include `benchmark_adapter_mode` and `external_command` so downstream aggregation can separate deterministic mock smoke rows from external benchmark plans.
 
+After running an external benchmark command, normalize its native JSON or JSONL output into the harness schema before aggregation:
+
+```bash
+.venv/bin/python -m experiments.harness.import_external_results \
+  --input /path/to/tau3_native_results.jsonl \
+  --output experiments/results/external/tau3_airline_normalized.jsonl \
+  --benchmark tau3 \
+  --domain airline \
+  --method external_native
+```
+
+For AgentChangeBench:
+
+```bash
+.venv/bin/python -m experiments.harness.import_external_results \
+  --input /path/to/agentchange_results.json \
+  --output experiments/results/external/agentchange_retail_normalized.jsonl \
+  --benchmark agentchange \
+  --domain retail \
+  --method external_native
+```
+
+The importer preserves benchmark-native metric fields such as `TSR`, `TUE`, `TCRR`, `GSRT`, `task_success`, and `policy_compliance`, and maps common fields such as `task_id`, `example_id`, `success`, `passed`, `latency_ms`, `duration_ms`, `tool_calls`, and `num_tool_calls` into the common `RuntimeResult` row format.
+
 ## Required Artifacts
 
 Each run should produce JSONL rows with:
@@ -117,6 +141,8 @@ Each run should produce JSONL rows with:
 - `injected_faults`
 - `recovered`
 - `dead_letter`
+- `trajectory_path`
+- `runtime_trace_path`
 
 Aggregation produces JSON and CSV summaries. Plotting writes placeholder PDFs until main experiment results are available.
 
