@@ -17,6 +17,8 @@ class RuntimeResult:
     run_id: str
     success: bool
     ablation: Optional[str] = None
+    benchmark_adapter_mode: str = "mock"
+    external_command: List[str] = field(default_factory=list)
     native_metrics: Dict[str, Any] = field(default_factory=dict)
     runtime_metrics: Dict[str, Any] = field(default_factory=dict)
     events: List[Dict[str, Any]] = field(default_factory=list)

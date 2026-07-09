@@ -30,6 +30,8 @@ class RetryOnlyAdapter(RuntimeAdapter):
             run_id=run_id,
             success=success,
             ablation=runtime_config.get("ablation"),
+            benchmark_adapter_mode=task.adapter_mode,
+            external_command=task.external_command,
             native_metrics={**task.native_metrics, "task_success": success},
             runtime_metrics={"contract_violations": 0, "recovery_actions": max(0, attempts - 1)},
             latency_ms=1000 * attempts,

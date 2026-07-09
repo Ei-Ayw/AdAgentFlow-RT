@@ -161,6 +161,8 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
             run_id=run_id,
             success=success,
             ablation=ablation,
+            benchmark_adapter_mode=task.adapter_mode,
+            external_command=task.external_command,
             native_metrics={**task.native_metrics, "task_success": native_success},
             runtime_metrics={
                 "contract_violations": len(violations),

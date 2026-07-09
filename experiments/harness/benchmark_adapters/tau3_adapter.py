@@ -1,22 +1,70 @@
 """tau2-bench / tau3-bench workload adapter skeleton."""
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Dict, Iterable
 
-from experiments.harness.benchmark_adapters.base import BenchmarkTask, MockBenchmarkAdapter
+from experiments.harness.benchmark_adapters.base import (
+    BenchmarkTask,
+    MockBenchmarkAdapter,
+    command_prefix,
+    config_task_ids,
+    external_requested,
+    require_benchmark_repo,
+)
 
 
 class Tau3BenchmarkAdapter(MockBenchmarkAdapter):
     benchmark_name = "tau3"
 
     def load_tasks(self, config: Dict[str, Any]) -> Iterable[BenchmarkTask]:
-        repo_path = config.get("benchmark_repo_path")
-        if repo_path and not Path(repo_path).exists():
-            raise RuntimeError(
-                "tau2-bench / tau3-bench repo was not found. "
-                "Set benchmark_repo_path to an installed checkout or omit it for mock smoke tasks."
-            )
-        # Until the external package is installed, deterministic mock tasks keep
-        # the harness runnable while preserving the normalized output contract.
-        yield from super().load_tasks(config)
+        if not external_requested(config):
+            yield from super().load_tasks(config)
+            return
+
+        command = self.external_command(config)
+        domain = str(config.get("domain", "airline"))
+        task_ids = config_task_ids(config)
+        num_tasks = int(config.get("num_tasks", len(task_ids) or 1))
+        num_trials = int(config.get("num_trials", 1))
+        planned_ids = task_ids or [f"{domain}_external_{idx}" for idx in range(num_tasks)]
+        for trial_id in range(num_trials):
+            for task_id in planned_ids[:num_tasks]:
+                yield BenchmarkTask(
+                    benchmark=self.benchmark_name,
+                    domain=domain,
+                    task_id=task_id,
+                    trial_id=trial_id,
+                    payload={
+                        "adapter_mode": "external",
+                        "benchmark_repo_path": str(config.get("benchmark_repo_path")),
+                        "external_command": command,
+                    },
+                    native_metrics={"policy_compliance_expected": True},
+                    adapter_mode="external",
+                    external_command=command,
+                )
+
+    def external_command(self, config: Dict[str, Any]) -> list[str]:
+        repo = require_benchmark_repo(config, "tau2-bench / tau3-bench")
+        command = command_prefix(repo, config.get("benchmark_command"))
+        command.extend(
+            [
+                "run",
+                "--domain",
+                str(config.get("domain", "airline")),
+                "--agent-llm",
+                str(config.get("agent_llm", "gpt-4.1")),
+                "--user-llm",
+                str(config.get("user_llm", "gpt-4.1")),
+                "--num-trials",
+                str(config.get("num_trials", 1)),
+                "--num-tasks",
+                str(config.get("num_tasks", 1)),
+            ]
+        )
+        task_ids = config_task_ids(config)
+        if task_ids:
+            command.extend(["--task-ids", ",".join(task_ids)])
+        if config.get("output_dir"):
+            command.extend(["--output-dir", str(config["output_dir"])])
+        return command

@@ -1,0 +1,12 @@
+benchmark: tau3
+benchmark_repo_path: /path/to/tau2-bench
+domain: airline
+num_tasks: 3
+num_trials: 1
+agent_llm: gpt-4.1
+user_llm: gpt-4.1
+max_concurrency: 1
+methods: [vanilla, retry_only, schema_only, adagentflow_rt]
+stress: none
+execution_mode: external
+output_dir: experiments/results/external/tau3_airline

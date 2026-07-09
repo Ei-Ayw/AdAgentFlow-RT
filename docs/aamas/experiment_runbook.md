@@ -49,6 +49,23 @@ Run a fault-injection smoke:
 
 For tau2-bench / tau3-bench and AgentChangeBench, set `benchmark_repo_path` in the config. If the repo path is missing, adapters fail with instructions instead of silently changing benchmark data. If omitted, the adapter uses deterministic mock tasks that preserve the normalized result shape.
 
+External configs are examples because the public benchmark checkouts are not vendored into this repository:
+
+```bash
+.venv/bin/python -m experiments.harness.run_matrix \
+  --config experiments/harness/configs/tau3_airline_external_example.yaml \
+  --stress-config experiments/harness/configs/stress_none.yaml \
+  --output experiments/results/external/tau3_airline_planned.jsonl
+```
+
+When `benchmark_repo_path` exists and contains a `pyproject.toml`, the adapter records a command plan using:
+
+```bash
+uv run tau2 run --domain <domain> --agent-llm <model> --user-llm <model> --num-trials <n> --num-tasks <n>
+```
+
+Rows written by the harness include `benchmark_adapter_mode` and `external_command` so downstream aggregation can separate deterministic mock smoke rows from external benchmark plans.
+
 ## Required Artifacts
 
 Each run should produce JSONL rows with:

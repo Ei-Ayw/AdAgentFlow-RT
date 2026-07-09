@@ -4,6 +4,7 @@
     "domain": "airline",
     "method": "adagentflow_rt",
     "ablation": "without_contract_monitor",
+    "benchmark_adapter_mode": "mock",
     "task_success": 0.0,
     "policy_compliance": 1.0,
     "TSR": null,
