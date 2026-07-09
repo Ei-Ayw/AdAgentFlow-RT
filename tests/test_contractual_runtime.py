@@ -7,6 +7,7 @@ from app.runtime.fault_localizer import FaultLocalizer
 from app.runtime.graph import RuntimeNode
 from app.runtime.monitor import RuntimeMonitor
 from app.runtime.planner import sequential_graph
+from app.runtime.replay import replay_trace, summarize_events
 from app.runtime.recovery import RecoveryController
 from app.runtime.scheduler import RuntimeScheduler
 
@@ -68,3 +69,70 @@ def test_scheduler_runs_after_artifact_dependency_is_available():
         )
     )
     assert [node.node_id for node in scheduler.runnable_nodes()] == ["second"]
+
+
+def test_replay_trace_accepts_runtime_events_and_extracts_recovery_chain():
+    from app.runtime.event_log import InMemoryEventLog
+
+    log = InMemoryEventLog()
+    for event_type in (
+        "graph.created",
+        "contract.loaded",
+        "node.started",
+        "contract.checked",
+        "contract.violated",
+        "fault.localized",
+        "recovery.selected",
+        "recovery.succeeded",
+        "task.finalized",
+    ):
+        payload = {"action": "quick_repair"} if event_type.startswith("recovery.") else {}
+        log.record(
+            run_id="run_1",
+            task_id="task_1",
+            event_type=event_type,
+            node_id="n1",
+            status="quick_repair" if event_type.startswith("recovery.") else "ok",
+            payload=payload,
+        )
+
+    diagnostic = replay_trace(log.events)
+    summary = summarize_events(log.events)
+
+    assert diagnostic.replayable is True
+    assert diagnostic.has_recovery_chain is True
+    assert diagnostic.recovery_actions == ["quick_repair", "quick_repair"]
+    assert diagnostic.terminal_status == "ok"
+    assert summary["replayable"] is True
+    assert summary["by_type"]["contract.violated"] == 1
+
+
+def test_replay_trace_reports_missing_order_and_mixed_run_errors():
+    events = [
+        {
+            "run_id": "run_2",
+            "task_id": "task_2",
+            "event_type": "task.finalized",
+            "status": "success",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "payload": {},
+        },
+        {
+            "run_id": "run_1",
+            "task_id": "task_1",
+            "event_type": "graph.created",
+            "status": "ok",
+            "created_at": "2026-01-01T00:00:01+00:00",
+            "payload": {},
+        },
+    ]
+
+    diagnostic = replay_trace(events)
+
+    assert diagnostic.replayable is False
+    assert "contract.loaded" in diagnostic.missing_required_events
+    assert "node.started" in diagnostic.missing_required_events
+    assert "contract.checked" in diagnostic.missing_required_events
+    assert "task.finalized appears before graph.created" in diagnostic.ordering_errors
+    assert any("multiple task_ids" in error for error in diagnostic.ordering_errors)
+    assert any("multiple run_ids" in error for error in diagnostic.ordering_errors)

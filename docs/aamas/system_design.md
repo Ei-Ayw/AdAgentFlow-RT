@@ -18,7 +18,7 @@ Fault Localizer: maps contract violations into operational fault classes such as
 
 Recovery Controller: selects bounded recovery actions such as `quick_repair`, `retry_same_agent`, `reroute_agent`, `rollback_to_checkpoint`, `invalidate_downstream`, `degrade_output`, `human_escalate`, and `dead_letter`.
 
-Event-Sourced Trace: records runtime events by `task_id` and `run_id`, including graph creation, contract checks, node execution, violation detection, fault localization, recovery decisions, checkpoints, rollbacks, dead letters, and task finalization.
+Event-Sourced Trace: records runtime events by `task_id` and `run_id`, including graph creation, contract checks, node execution, violation detection, fault localization, recovery decisions, checkpoints, rollbacks, dead letters, and task finalization. Replay diagnostics reconstruct a trace from event objects or serialized event rows, check required lifecycle events and ordering, and extract the recovery chain used for audit evidence.
 
 Production-Stress Harness: runs benchmark tasks through comparable runtime strategies under controlled concurrency and fault injection.
 
