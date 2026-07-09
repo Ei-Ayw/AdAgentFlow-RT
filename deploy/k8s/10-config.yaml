@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adagentflow-config
+  namespace: adagentflow
+  labels:
+    app.kubernetes.io/part-of: adagentflow
+data:
+  # ---- LLM ----
+  ANTHROPIC_BASE_URL: "https://api.minimaxi.com/anthropic"
+  ANTHROPIC_DEFAULT_HAIKU_MODEL: "MiniMax-M3"
+  ANTHROPIC_DEFAULT_SONNET_MODEL: "MiniMax-M3"
+  LLM_TIMEOUT: "30"
+  LLM_MAX_RETRIES: "3"
+
+  # ---- Database (non-secret parts) ----
+  DB_POOL_SIZE: "20"
+  DB_MAX_OVERFLOW: "40"
+
+  # ---- Redis ----
+  REDIS_IDEMPOTENT_TTL: "86400"
+
+  # ---- RabbitMQ ----
+  RABBITMQ_PREFETCH: "8"
+
+  # ---- Task config ----
+  MAX_RETRY_COUNT: "3"
+  RETRY_DELAYS: "0,5,15"
+  DEAD_LETTER_THRESHOLD: "3"
+
+  # ---- Langfuse ----
+  LANGFUSE_ENABLED: "true"
+  LANGFUSE_HOST: "http://langfuse.langfuse.svc.cluster.local:3000"
+
+  # ---- Business switches ----
+  USE_MOCK_LLM: "true"
+  USE_OLLAMA_FALLBACK: "false"
+  OLLAMA_BASE_URL: "http://ollama.ollama.svc.cluster.local:11434"
+
+  # ---- Logging ----
+  LOG_LEVEL: "INFO"
+
+  # ---- Service URLs (resolved via DNS inside the namespace) ----
+  # NOTE: secrets are NOT injected here. The actual credentials are wired in
+  # at the Deployment level via env entries sourced from `adagentflow-secrets`
+  # (see `30-api.yaml`, `31-worker-light.yaml`, `32-worker-heavy.yaml`).
+  # If you need DATABASE_URL / REDIS_URL / RABBITMQ_URL in a non-secret ConfigMap,
+  # prefer templating these in the Deployment env (see the deployments above)
+  # so passwords stay in Secret only.
+  REDIS_URL: "redis://redis.adagentflow.svc.cluster.local:6379/0"

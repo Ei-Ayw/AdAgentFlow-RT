@@ -649,7 +649,7 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
     _tracing.session_scope = mock_session_scope
 
     # 直接 patch 整个 _update_metric 方法，让它 no-op
-    def noop_update_metric(self, success, json_failed):
+    def noop_update_metric(self, success, json_failed, token_cost=0, latency_ms=0):
         step_id = self.step_id
         st = ctx.step_stat(step_id)
         st["total"] += 1

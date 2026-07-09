@@ -178,6 +178,14 @@ curl http://localhost:8000/api/v1/traces/trace_1720600000_e5f6g7h8
 - 失败原因 Top 5
 - 死信任务列表（可一键 resume）
 
+### 6. Trace 时间线（按 task_id 看甘特图）
+
+```bash
+open http://localhost:8000/dashboard/trace.html?task_id=<TASK_ID>
+```
+
+可视化展示：5 个业务节点的起止时间、token 消耗、retry 次数、失败原因。后端接口 `GET /api/v1/traces/by-task/{task_id}/timeline`。
+
 ---
 
 ## API 示例
@@ -228,6 +236,7 @@ curl -X POST http://localhost:8000/api/v1/dead-letters/{task_id}/resume
 | [docs/PROMPTS.md](docs/PROMPTS.md) | 6 个 Agent 的 Prompt 模板与版本管理 |
 | [docs/CV_BULLETS.md](docs/CV_BULLETS.md) | 简历 bullet 与代码路径映射（含可直接复用的数字） |
 | [docs/LANGFUSE_INTEGRATION.md](docs/LANGFUSE_INTEGRATION.md) | Langfuse 可观测集成配置 |
+| [docs/SCALING.md](docs/SCALING.md) | 1000 任务压测结果 + 扩容/降级方案 + 容量规划 |
 
 ---
 
@@ -244,7 +253,12 @@ curl -X POST http://localhost:8000/api/v1/dead-letters/{task_id}/resume
 | 构建任务级可观测与评测指标体系，基于 trace_id 记录节点耗时、模型调用次数、Token 消耗、重试次数、JSON 解析失败、评估结果与失败原因分布 | `app/services/tracing.py:26-65` (Tracer) + `app/api/dashboard_router.py:18-131` (overview) | Dashboard 可视化 |
 | 通过并发任务压测与故障模拟，验证模型超时、JSON 输出异常、Worker 异常退出、队列堆积和重复消费等场景下的任务恢复、幂等控制、失败重试与死信处理机制 | `app/workers/light_worker.py:91-107` (异常兜底) + `app/services/orchestrator.py:145-194` (幂等拦截) | docker kill worker-light 后任务仍能完成 |
 
-具体数字填充示例见 [docs/CV_BULLETS.md](docs/CV_BULLETS.md)。
+具体数字填充示例见 [docs/CV_BULLETS.md](docs/CV_BULLETS.md)（含 1000 任务并发压测实测数字）。
+
+**实测压测基线：**
+- 1000 任务并发 → 100% 端到端成功 / 392.33 任务/秒 / 平均 2.27s
+- JSON 自动修复：84.85% / 重复消息拦截：100% / Worker 崩溃恢复：100%
+- 详见 [`docs/SCALING.md`](docs/SCALING.md) 与 `reports/load_test_report.md`
 
 ---
 

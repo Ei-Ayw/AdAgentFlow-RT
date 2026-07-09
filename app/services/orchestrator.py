@@ -168,18 +168,15 @@ class WorkflowOrchestrator:
         self._transition_task(task_id, TaskStatus.RUNNING.value)
         # 推进 step 到 running
         self._transition_step(task_id, step_id, StepStatus.RUNNING.value)
-        tracer.record(
-            task_id=task_id,
-            step_id=step_id,
-            event_type="step.start",
-            event_status="running",
-        )
+        # 注：start 事件由 agent.run 内部统一写，避免重复
 
         # 取 agent
         agent = get_agent(step_id)
 
         # 上下文传给 agent
         ctx = {
+            "task_id": task_id,
+            "trace_id": trace_id,
             "product": product,
             "history": history,
             "attempt": attempt,
@@ -187,8 +184,8 @@ class WorkflowOrchestrator:
             "original_output": history.get(step_id, {}),
         }
 
-        # 跑 agent
-        result: AgentResult = await agent.run(ctx)
+        # 跑 agent (传入 tracer 让 agent 自己写 success/fail trace)
+        result: AgentResult = await agent.run(ctx, tracer=tracer)
 
         # 处理结果
         await self._handle_agent_result(task_id, step_id, result, payload, tracer)
@@ -233,16 +230,8 @@ class WorkflowOrchestrator:
                 step.prompt_version = result.prompt_version
                 step.finished_at = __import__("datetime").datetime.utcnow()
 
-        tracer.record(
-            task_id=task_id,
-            step_id=step_id,
-            event_type="step.success",
-            event_status="success",
-            latency_ms=result.latency_ms,
-            model_name=result.model,
-            prompt_version=result.prompt_version,
-            token_cost=result.input_tokens + result.output_tokens,
-        )
+        # 注：step.success trace 已由 agent.run() 内部写入
+        # 这里只写 task_step 状态推进，trace 不重复写
 
         # 更新 payload.history
         history = dict(payload.get("history", {}))
@@ -292,15 +281,18 @@ class WorkflowOrchestrator:
                 step.error_message = result.error_message
                 step.finished_at = __import__("datetime").datetime.utcnow()
                 step.retry_count = (step.retry_count or 0) + 1
+                # 把失败时已消耗的 token / latency 也记上
+                if result.latency_ms:
+                    step.latency_ms = result.latency_ms
+                if result.input_tokens or result.output_tokens:
+                    step.token_cost = (result.input_tokens or 0) + (result.output_tokens or 0)
+                if result.model:
+                    step.model_name = result.model
+                if result.prompt_version:
+                    step.prompt_version = result.prompt_version
 
-        tracer.record(
-            task_id=task_id,
-            step_id=step_id,
-            event_type="step.fail",
-            event_status="failed",
-            error_message=result.error_message,
-            extra_metadata={"failure_reason": result.failure_reason},
-        )
+        # 注：step.fail trace 已由 agent.run() 内部写入
+        # 这里只写 task_step 状态推进，trace 不重复写
 
         # 决定是 repair / retry / dead_letter
         new_retry_count = mark_task_retrying(task_id, result.failure_reason, result.error_message)

@@ -63,6 +63,73 @@ class Tracer:
         except Exception as e:
             logger.warning(f"写 trace 失败 (非致命): {e}")
 
+    # ================================================================
+    # 便捷封装：节点成功 / 失败上报
+    # ================================================================
+    def record_step_success(
+        self,
+        *,
+        task_id: str,
+        step_id: str,
+        latency_ms: int = 0,
+        model_name: Optional[str] = None,
+        prompt_version: Optional[str] = None,
+        token_cost: int = 0,
+        extra_metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """封装 step.success 的上报 - 把真实 model/prompt_version/token_cost 全部写进去"""
+        self.record(
+            task_id=task_id,
+            step_id=step_id,
+            event_type="step.success",
+            event_status="success",
+            latency_ms=latency_ms,
+            model_name=model_name,
+            prompt_version=prompt_version,
+            token_cost=token_cost,
+            extra_metadata=extra_metadata,
+        )
+
+    def record_step_fail(
+        self,
+        *,
+        task_id: str,
+        step_id: str,
+        latency_ms: int = 0,
+        error_message: Optional[str] = None,
+        failure_reason: Optional[str] = None,
+        extra_metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """封装 step.fail 的上报"""
+        meta = dict(extra_metadata or {})
+        if failure_reason is not None:
+            meta.setdefault("failure_reason", failure_reason)
+        self.record(
+            task_id=task_id,
+            step_id=step_id,
+            event_type="step.fail",
+            event_status="failed",
+            latency_ms=latency_ms,
+            error_message=error_message,
+            extra_metadata=meta,
+        )
+
+    def record_step_start(
+        self,
+        *,
+        task_id: str,
+        step_id: str,
+        extra_metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """封装 step.start 的上报"""
+        self.record(
+            task_id=task_id,
+            step_id=step_id,
+            event_type="step.start",
+            event_status="running",
+            extra_metadata=extra_metadata,
+        )
+
 
 @contextmanager
 def trace_step(tracer: Tracer, step_id: str, task_id: str = ""):
