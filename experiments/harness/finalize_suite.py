@@ -17,6 +17,7 @@ def main() -> None:
     parser.add_argument("--summary-json", required=True)
     parser.add_argument("--summary-csv", default=None)
     parser.add_argument("--report-json", default=None)
+    parser.add_argument("--allow-empty", action="store_true")
     parser.add_argument("--table-dir", default="paper/aamas2026/tables")
     parser.add_argument("--fig-dir", default="paper/aamas2026/figs")
     parser.add_argument("--plot-dir", default="experiments/results/plots")
@@ -24,14 +25,19 @@ def main() -> None:
 
     summary_json = Path(args.summary_json)
     summary_csv = Path(args.summary_csv) if args.summary_csv else summary_json.with_suffix(".csv")
-    report = finalize_suite(
-        suite_dir=Path(args.suite_dir),
-        summary_json=summary_json,
-        summary_csv=summary_csv,
-        table_dir=Path(args.table_dir),
-        fig_dir=Path(args.fig_dir),
-        plot_dir=Path(args.plot_dir),
-    )
+    try:
+        report = finalize_suite(
+            suite_dir=Path(args.suite_dir),
+            summary_json=summary_json,
+            summary_csv=summary_csv,
+            table_dir=Path(args.table_dir),
+            fig_dir=Path(args.fig_dir),
+            plot_dir=Path(args.plot_dir),
+            allow_empty=args.allow_empty,
+        )
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}")
+        raise SystemExit(1) from exc
     if args.report_json:
         report_path = Path(args.report_json)
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,8 +52,13 @@ def finalize_suite(
     table_dir: Path,
     fig_dir: Path,
     plot_dir: Path,
+    allow_empty: bool = False,
 ) -> Dict[str, Any]:
     summaries = summarize_suite(suite_dir)
+    if not summaries and not allow_empty:
+        raise RuntimeError(
+            f"no result rows found in {suite_dir}; pass --allow-empty only for dry-run artifact checks"
+        )
     summary_json.parent.mkdir(parents=True, exist_ok=True)
     summary_json.write_text(json.dumps(summaries, indent=2, ensure_ascii=False), encoding="utf-8")
     write_summary_csv(summary_csv, summaries)

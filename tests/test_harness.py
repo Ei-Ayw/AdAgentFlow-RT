@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 from experiments.harness.benchmark_adapters.base import MockBenchmarkAdapter
 from experiments.harness.benchmark_adapters.agentchange_adapter import AgentChangeBenchmarkAdapter
 from experiments.harness.benchmark_adapters.tau3_adapter import Tau3BenchmarkAdapter
@@ -681,3 +683,36 @@ def test_finalize_suite_cli_writes_report_json(tmp_path, monkeypatch):
     report = json.loads(report_json.read_text(encoding="utf-8"))
     assert report["summary_rows"] == 1
     assert report["provenance"]["python_version"]
+
+
+def test_finalize_suite_rejects_empty_results_by_default(tmp_path):
+    suite_dir = tmp_path / "empty_suite"
+    suite_dir.mkdir()
+
+    with pytest.raises(RuntimeError, match="no result rows"):
+        finalize_suite(
+            suite_dir=suite_dir,
+            summary_json=tmp_path / "summary.json",
+            summary_csv=tmp_path / "summary.csv",
+            table_dir=tmp_path / "tables",
+            fig_dir=tmp_path / "figs",
+            plot_dir=tmp_path / "plots",
+        )
+
+
+def test_finalize_suite_allows_empty_results_when_requested(tmp_path):
+    suite_dir = tmp_path / "empty_suite"
+    suite_dir.mkdir()
+
+    report = finalize_suite(
+        suite_dir=suite_dir,
+        summary_json=tmp_path / "summary.json",
+        summary_csv=tmp_path / "summary.csv",
+        table_dir=tmp_path / "tables",
+        fig_dir=tmp_path / "figs",
+        plot_dir=tmp_path / "plots",
+        allow_empty=True,
+    )
+
+    assert report["summary_rows"] == 0
+    assert (tmp_path / "summary.json").exists()

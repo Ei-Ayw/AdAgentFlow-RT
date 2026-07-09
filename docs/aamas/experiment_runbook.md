@@ -93,6 +93,7 @@ Finalize a completed suite into summaries and paper-facing artifacts:
 ```
 
 The finalize report records summary locations, generated paper artifacts, and provenance for result auditing.
+`finalize_suite` fails when no result rows are found; use `--allow-empty` only for dry-run artifact plumbing checks, not for paper claims.
 
 Matrix and suite aggregation preserve `suite_run`, `max_concurrency`, `fault_rate`, and the concrete stressor list in `stress`. These fields drive the success-vs-concurrency, latency-vs-concurrency, and recovery-vs-fault-rate figures.
 
