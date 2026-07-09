@@ -7,6 +7,7 @@ from experiments.harness.config import config_methods, config_stressors, load_si
 from experiments.harness.export_paper_tables import load_summaries, write_failure_breakdown, write_table
 from experiments.harness.metrics.runtime_metrics import compute_runtime_metrics
 from experiments.harness.metrics.trace_metrics import compute_trace_metrics
+from experiments.harness.plot_results import build_figure_rows, write_ablation_table, write_figures
 from experiments.harness.runtime_adapters.adagentflow_rt import AdAgentFlowRTAdapter
 from experiments.harness.stressors.schema_drift import SchemaDriftStressor
 from experiments.harness.workload.concurrency_runner import run_tasks
@@ -157,3 +158,42 @@ def test_export_paper_tables_writes_runtime_csvs(tmp_path):
 
     assert "adagentflow_rt" in main_table.read_text(encoding="utf-8")
     assert "artifact_fault" in failure_table.read_text(encoding="utf-8")
+
+
+def test_plot_results_writes_data_backed_figures(tmp_path):
+    rows = [
+        {
+            "benchmark": "tau3",
+            "domain": "airline",
+            "method": "adagentflow_rt",
+            "ablation": None,
+            "task_success_rate": 1.0,
+            "p95_latency_ms": 1500,
+            "recovery_success_rate": 1.0,
+            "dead_letter_rate": 0.0,
+            "cost_per_successful_task": 4.0,
+        },
+        {
+            "benchmark": "tau3",
+            "domain": "airline",
+            "method": "adagentflow_rt",
+            "ablation": "without_contract_monitor",
+            "task_success_rate": 1.0,
+            "p95_latency_ms": 1200,
+            "recovery_success_rate": 0.0,
+            "dead_letter_rate": 0.0,
+            "cost_per_successful_task": 3.0,
+            "silent_failure_rate": 1.0,
+        },
+    ]
+    figure_rows = build_figure_rows(rows)
+    fig_dir = tmp_path / "figs"
+    table_path = tmp_path / "ablation.csv"
+
+    write_figures(fig_dir, figure_rows)
+    write_ablation_table(table_path, rows)
+
+    assert (fig_dir / "system_architecture.pdf").exists()
+    assert (fig_dir / "ablation_study.csv").exists()
+    assert "without_contract_monitor" in table_path.read_text(encoding="utf-8")
+    assert any(row["metric"] == "task_success_rate" for row in figure_rows["success_vs_concurrency"])

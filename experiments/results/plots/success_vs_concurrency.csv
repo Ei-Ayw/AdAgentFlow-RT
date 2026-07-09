@@ -1,0 +1,7 @@
+ablation,benchmark,concurrency,domain,fault_rate,method,metric,value
+,tau3,smoke,airline,mixed,adagentflow_rt,task_success_rate,1.0
+,tau3,smoke,airline,mixed,retry_only,task_success_rate,1.0
+,tau3,smoke,airline,mixed,schema_only,task_success_rate,1.0
+,tau3,smoke,airline,mixed,vanilla,task_success_rate,0.0
+,tau3,smoke,airline,mixed,adagentflow_rt,task_success_rate,1.0
+without_contract_monitor,tau3,smoke,airline,mixed,adagentflow_rt,task_success_rate,1.0

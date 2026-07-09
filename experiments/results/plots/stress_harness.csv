@@ -1,0 +1,7 @@
+name,stage
+benchmark task,1
+runtime adapter,2
+stress layer,3
+runtime strategy,4
+benchmark environment,5
+benchmark + runtime evaluator,6

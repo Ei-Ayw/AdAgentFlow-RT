@@ -1,2 +1,3 @@
-method,success_rate,dead_letter_rate,recovery_success_rate
-adagentflow_rt,TBD,TBD,TBD
+method,ablation,task_success_rate,dead_letter_rate,recovery_success_rate,silent_failure_rate,mean_time_to_recover_ms
+retry_only,,1.0,0.0,1.0,0.0,0
+adagentflow_rt,without_contract_monitor,1.0,0.0,0.0,1.0,0

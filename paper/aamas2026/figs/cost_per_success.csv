@@ -1,0 +1,7 @@
+ablation,benchmark,concurrency,domain,fault_rate,method,metric,value
+,tau3,smoke,airline,mixed,adagentflow_rt,cost_per_successful_task,3.3333333333333335
+,tau3,smoke,airline,mixed,retry_only,cost_per_successful_task,6.0
+,tau3,smoke,airline,mixed,schema_only,cost_per_successful_task,3.0
+,tau3,smoke,airline,mixed,vanilla,cost_per_successful_task,0.0
+,tau3,smoke,airline,mixed,adagentflow_rt,cost_per_successful_task,4.0
+without_contract_monitor,tau3,smoke,airline,mixed,adagentflow_rt,cost_per_successful_task,3.0
