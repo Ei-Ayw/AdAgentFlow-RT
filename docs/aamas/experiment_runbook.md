@@ -57,6 +57,15 @@ Full experiment suites are dry-run planned by default. This is the safe way to i
 
 The command writes `suite_manifest.json` with one JSONL output target per planned run. Add `--execute` only after smoke validation and external benchmark setup:
 
+Validate the suite before execution:
+
+```bash
+.venv/bin/python -m experiments.harness.validate_suite \
+  --suite-config experiments/harness/configs/suite_main_compressed.yaml \
+  --output-dir experiments/results/main/compressed_plan \
+  --json-output experiments/results/main/compressed_plan/validation_report.json
+```
+
 ```bash
 .venv/bin/python -m experiments.harness.run_suite \
   --suite-config experiments/harness/configs/suite_main_compressed.yaml \

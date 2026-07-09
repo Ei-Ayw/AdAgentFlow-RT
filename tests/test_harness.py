@@ -20,6 +20,7 @@ from experiments.harness.refresh_paper_artifacts import refresh_paper_artifacts
 from experiments.harness.run_suite import build_suite_plan
 from experiments.harness.runtime_adapters.adagentflow_rt import AdAgentFlowRTAdapter
 from experiments.harness.stressors.schema_drift import SchemaDriftStressor
+from experiments.harness.validate_suite import validate_suite_config
 from experiments.harness.workload.concurrency_runner import run_tasks
 
 
@@ -489,6 +490,50 @@ def test_suite_plan_propagates_external_command_config(tmp_path):
     assert config["benchmark_command"] == "uv run tau2"
     assert config["output_dir"] == "experiments/results/external/tau3_airline"
     assert config["task_ids"] == ["task_a", "task_b"]
+
+
+def test_validate_suite_reports_main_compressed_matrix(tmp_path):
+    suite = load_simple_config("experiments/harness/configs/suite_main_compressed.yaml")
+    report = validate_suite_config(suite, output_dir=tmp_path)
+
+    assert report["ok"] is True
+    assert report["suite_name"] == "main_compressed"
+    assert report["run_count"] == 24
+    assert report["expected_run_count"] == 24
+    assert report["benchmarks"] == ["tau3"]
+    assert "adagentflow_rt" in report["methods"]
+    assert "schema_drift" in report["stressors"]
+    assert report["warnings"]
+
+
+def test_validate_suite_rejects_missing_external_repo(tmp_path):
+    report = validate_suite_config(
+        {
+            "suite_name": "bad_external",
+            "benchmarks": ["tau3"],
+            "domains": ["airline"],
+            "execution_mode": "external",
+        },
+        output_dir=tmp_path,
+    )
+
+    assert report["ok"] is False
+    assert any("benchmark_repo_path" in error for error in report["errors"])
+
+
+def test_validate_suite_rejects_unknown_runtime_method(tmp_path):
+    report = validate_suite_config(
+        {
+            "suite_name": "bad_method",
+            "benchmarks": ["tau3"],
+            "domains": ["airline"],
+            "methods": ["vanilla", "invented_runtime"],
+        },
+        output_dir=tmp_path,
+    )
+
+    assert report["ok"] is False
+    assert "unknown runtime method: invented_runtime" in report["errors"]
 
 
 def test_aggregate_suite_summarizes_jsonl_directory(tmp_path, monkeypatch):
