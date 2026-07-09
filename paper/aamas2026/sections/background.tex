@@ -1,0 +1,5 @@
+\section{Background and Motivation}
+
+Multi-agent workflows fail in ways that are not captured by final task success alone. A workflow can complete while using stale context, propagating a contaminated artifact, violating a resource budget, silently accepting a malformed tool response, or retrying until cost becomes unacceptable.
+
+Retry and prompt repair are useful but insufficient as the only reliability mechanism. They do not identify the responsible node, downstream contamination, recovery budget, or whether the runtime should rollback, reroute, degrade, escalate, or dead-letter a task.

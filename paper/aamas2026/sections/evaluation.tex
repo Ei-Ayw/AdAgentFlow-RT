@@ -1,0 +1,5 @@
+\section{Production-Stress Evaluation Harness}
+
+The harness wraps public benchmark tasks without modifying their data. tau2-bench / tau3-bench provide the main workload across airline, retail, and telecom domains. AgentChangeBench provides supplementary goal-change recovery evaluation across airline and retail domains.
+
+We compare vanilla tool calling, retry-only execution, schema-only validation, and AdAgentFlow-RT. Stressors include tool timeouts, rate limits, partial responses, schema drift, stale context, duplicate messages, and worker crashes. All experiments write JSONL records with benchmark-native metrics, runtime metrics, injected faults, events, and recovery outcomes.

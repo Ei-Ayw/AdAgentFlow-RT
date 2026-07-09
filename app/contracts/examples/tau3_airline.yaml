@@ -1,0 +1,20 @@
+contracts:
+  - name: tau3.airline.intent
+    capability: resolve_airline_customer_intent
+    output_schema:
+      type: object
+      required: [intent, confidence]
+      properties:
+        intent:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+    semantic_checks:
+      - intent_must_match_available_airline_policy
+    resource_budget:
+      max_latency_ms: 30000
+      max_llm_calls: 3
+      max_tool_calls: 8
+      max_retries: 2

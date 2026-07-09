@@ -1,0 +1,5 @@
+\section{Contractual Execution Model}
+
+AdAgentFlow-RT models a multi-agent workflow as a Contractual Execution Graph. Nodes declare a role, capability, agent provider, and contract name. Edges declare artifact dependencies. Contracts define input and output schemas, preconditions, postconditions, semantic checks, resource budgets, recovery policies, and escalation policies.
+
+The first implementation supports DAG execution, including sequential paths, fan-out, joins, fallback branches, and rollback targets. Each produced artifact carries provenance, validation status, and downstream consumers. This makes failure propagation explicit and measurable.

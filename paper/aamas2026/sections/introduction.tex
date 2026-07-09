@@ -1,0 +1,7 @@
+\section{Introduction}
+
+Long-horizon agent systems increasingly combine planning, tool use, memory, verification, and multiple specialized agents. Public benchmarks have improved the field's ability to measure task completion, but production deployments face a broader reliability problem: the runtime must bound cost, detect contract violations, avoid silent failures, contain faulty artifacts, recover without unbounded retry loops, and preserve traces that support diagnosis.
+
+AdAgentFlow-RT reframes an existing multi-agent engineering prototype as a contractual runtime for reliable high-throughput multi-agent workflows. The advertising generation workflow remains an example domain, while the paper contribution is a reusable runtime abstraction and evaluation harness.
+
+This work makes three claims. First, runtime contracts should cover schemas, semantics, dependencies, budgets, and recovery policies, not only JSON validity. Second, production reliability should be evaluated under controlled concurrency and fault injection on top of public task benchmarks. Third, event-sourced traces and bounded recovery make failures more diagnosable and reduce retry amplification compared with vanilla, retry-only, and schema-only baselines.
