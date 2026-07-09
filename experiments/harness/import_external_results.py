@@ -16,6 +16,11 @@ def main() -> None:
     parser.add_argument("--benchmark", required=True, choices=["tau3", "agentchange"])
     parser.add_argument("--domain", required=True)
     parser.add_argument("--method", default="external_native")
+    parser.add_argument("--suite-run", default=None)
+    parser.add_argument("--fault-rate", type=float, default=None)
+    parser.add_argument("--max-concurrency", type=int, default=None)
+    parser.add_argument("--stress", default=None)
+    parser.add_argument("--ablation", default=None)
     args = parser.parse_args()
 
     rows = import_external_results(
@@ -23,6 +28,11 @@ def main() -> None:
         benchmark=args.benchmark,
         domain=args.domain,
         method=args.method,
+        suite_run=args.suite_run,
+        fault_rate=args.fault_rate,
+        max_concurrency=args.max_concurrency,
+        stress=args.stress,
+        ablation=args.ablation,
     )
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -37,9 +47,24 @@ def import_external_results(
     benchmark: str,
     domain: str,
     method: str,
+    suite_run: str | None = None,
+    fault_rate: float | None = None,
+    max_concurrency: int | None = None,
+    stress: str | None = None,
+    ablation: str | None = None,
 ) -> List[RuntimeResult]:
     return [
-        normalize_external_row(row, benchmark=benchmark, domain=domain, method=method)
+        normalize_external_row(
+            row,
+            benchmark=benchmark,
+            domain=domain,
+            method=method,
+            suite_run=suite_run,
+            fault_rate=fault_rate,
+            max_concurrency=max_concurrency,
+            stress=stress,
+            ablation=ablation,
+        )
         for row in load_external_rows(input_path)
     ]
 
@@ -70,6 +95,11 @@ def normalize_external_row(
     benchmark: str,
     domain: str,
     method: str,
+    suite_run: str | None = None,
+    fault_rate: float | None = None,
+    max_concurrency: int | None = None,
+    stress: str | None = None,
+    ablation: str | None = None,
 ) -> RuntimeResult:
     task_id = str(_first_present(row, ["task_id", "id", "example_id", "episode_id"], "unknown_task"))
     trial_id = int(_first_present(row, ["trial_id", "trial", "seed"], 0) or 0)
@@ -85,7 +115,11 @@ def normalize_external_row(
         method=str(row.get("method", method)),
         run_id=str(row.get("run_id") or f"external_{benchmark}_{domain}_{task_id}_{trial_id}"),
         success=success,
-        ablation=row.get("ablation"),
+        suite_run=_optional_str(row.get("suite_run", suite_run)),
+        fault_rate=_optional_float(row.get("fault_rate", fault_rate)),
+        max_concurrency=_optional_int(row.get("max_concurrency", max_concurrency)),
+        stress=_optional_str(row.get("stress", stress)),
+        ablation=_optional_str(row.get("ablation", ablation)),
         benchmark_adapter_mode="external",
         external_command=_string_list(row.get("external_command", [])),
         native_metrics=native_metrics,
@@ -151,6 +185,18 @@ def _optional_str(value: Any) -> str | None:
     if value is None:
         return None
     return str(value)
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    return int(value)
 
 
 if __name__ == "__main__":

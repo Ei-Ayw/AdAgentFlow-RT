@@ -69,6 +69,12 @@ def build_suite_plan(suite: Dict[str, Any], *, output_dir: Path) -> Dict[str, An
                                 config["agent_llm"] = suite["agent_llm"]
                             if suite.get("user_llm"):
                                 config["user_llm"] = suite["user_llm"]
+                            if suite.get("benchmark_command"):
+                                config["benchmark_command"] = suite["benchmark_command"]
+                            if suite.get("output_dir"):
+                                config["output_dir"] = suite["output_dir"]
+                            if suite.get("task_ids"):
+                                config["task_ids"] = suite["task_ids"]
                             label = _run_label(config)
                             output = output_dir / f"{label}.jsonl"
                             runs.append(

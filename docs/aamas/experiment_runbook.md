@@ -111,7 +111,11 @@ After running an external benchmark command, normalize its native JSON or JSONL 
   --output experiments/results/external/tau3_airline_normalized.jsonl \
   --benchmark tau3 \
   --domain airline \
-  --method external_native
+  --method external_native \
+  --suite-run main_external \
+  --max-concurrency 10 \
+  --fault-rate 0.2 \
+  --stress tool_timeout,schema_drift
 ```
 
 For AgentChangeBench:
@@ -122,10 +126,15 @@ For AgentChangeBench:
   --output experiments/results/external/agentchange_retail_normalized.jsonl \
   --benchmark agentchange \
   --domain retail \
-  --method external_native
+  --method external_native \
+  --suite-run agentchange_external \
+  --max-concurrency 1 \
+  --fault-rate 0.0 \
+  --stress none
 ```
 
 The importer preserves benchmark-native metric fields such as `TSR`, `TUE`, `TCRR`, `GSRT`, `task_success`, and `policy_compliance`, and maps common fields such as `task_id`, `example_id`, `success`, `passed`, `latency_ms`, `duration_ms`, `tool_calls`, and `num_tool_calls` into the common `RuntimeResult` row format.
+Pass `suite-run`, `max-concurrency`, `fault-rate`, `stress`, and `ablation` during import when the external benchmark output does not already contain those fields; otherwise concurrency and fault-rate figures will not have the required grouping keys.
 
 ## Required Artifacts
 

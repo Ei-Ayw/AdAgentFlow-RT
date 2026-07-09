@@ -251,6 +251,29 @@ def test_import_external_results_jsonl_feeds_existing_aggregator(tmp_path):
     assert metrics["task_success_rate"] == 0.5
 
 
+def test_import_external_results_attaches_matrix_metadata(tmp_path):
+    source = tmp_path / "tau3.jsonl"
+    source.write_text('{"task_id":"airline_1","success":true}\n', encoding="utf-8")
+
+    [result] = import_external_results(
+        input_path=source,
+        benchmark="tau3",
+        domain="airline",
+        method="external_native",
+        suite_run="main_external",
+        fault_rate=0.2,
+        max_concurrency=20,
+        stress="tool_timeout,schema_drift",
+        ablation="without_fault_localizer",
+    )
+
+    assert result.suite_run == "main_external"
+    assert result.fault_rate == 0.2
+    assert result.max_concurrency == 20
+    assert result.stress == "tool_timeout,schema_drift"
+    assert result.ablation == "without_fault_localizer"
+
+
 def test_aggregate_results_preserves_matrix_dimensions(tmp_path, monkeypatch):
     input_path = tmp_path / "matrix.jsonl"
     output = tmp_path / "summary.json"
@@ -441,6 +464,31 @@ def test_suite_plan_expands_protocol_matrix(tmp_path):
     labels = {item["label"] for item in plan["runs"]}
     assert any("without_contract_monitor" in label for label in labels)
     assert all(item["output"].endswith(".jsonl") for item in plan["runs"])
+
+
+def test_suite_plan_propagates_external_command_config(tmp_path):
+    plan = build_suite_plan(
+        {
+            "suite_name": "external_smoke",
+            "benchmarks": ["tau3"],
+            "domains": ["airline"],
+            "num_tasks": 1,
+            "num_trials": 1,
+            "execution_mode": "external",
+            "benchmark_repo_path": "/tmp/tau2",
+            "benchmark_command": "uv run tau2",
+            "output_dir": "experiments/results/external/tau3_airline",
+            "task_ids": ["task_a", "task_b"],
+        },
+        output_dir=tmp_path,
+    )
+
+    config = plan["runs"][0]["config"]
+    assert config["execution_mode"] == "external"
+    assert config["benchmark_repo_path"] == "/tmp/tau2"
+    assert config["benchmark_command"] == "uv run tau2"
+    assert config["output_dir"] == "experiments/results/external/tau3_airline"
+    assert config["task_ids"] == ["task_a", "task_b"]
 
 
 def test_aggregate_suite_summarizes_jsonl_directory(tmp_path, monkeypatch):
