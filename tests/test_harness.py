@@ -16,6 +16,7 @@ from experiments.harness.finalize_suite import finalize_suite
 from experiments.harness.import_external_results import import_external_results
 from experiments.harness.aggregate_results import main as aggregate_results_main
 from experiments.harness.aggregate_suite import main as aggregate_suite_main
+from experiments.harness.audit_results import audit_summaries
 from experiments.harness.metrics.runtime_metrics import compute_runtime_metrics
 from experiments.harness.metrics.trace_metrics import compute_trace_metrics
 from experiments.harness.plot_results import build_figure_rows, write_ablation_table, write_figures
@@ -716,3 +717,76 @@ def test_finalize_suite_allows_empty_results_when_requested(tmp_path):
 
     assert report["summary_rows"] == 0
     assert (tmp_path / "summary.json").exists()
+
+
+def test_audit_results_rejects_mock_only_main_claim():
+    report = audit_summaries(
+        [
+            {
+                "benchmark": "tau3",
+                "domain": "airline",
+                "method": "adagentflow_rt",
+                "benchmark_adapter_mode": "mock",
+                "max_concurrency": 1,
+                "fault_rate": 0.0,
+            }
+        ],
+        require_external_main=True,
+    )
+
+    assert report["ok"] is False
+    assert any("external tau3" in error for error in report["errors"])
+    assert report["warnings"]
+
+
+def test_audit_results_accepts_external_main_and_agentchange():
+    rows = [
+        {
+            "benchmark": "tau3",
+            "domain": "airline",
+            "method": "vanilla",
+            "benchmark_adapter_mode": "external",
+            "max_concurrency": 1,
+            "fault_rate": 0.0,
+        },
+        {
+            "benchmark": "tau3",
+            "domain": "airline",
+            "method": "retry_only",
+            "benchmark_adapter_mode": "external",
+            "max_concurrency": 10,
+            "fault_rate": 0.2,
+        },
+        {
+            "benchmark": "tau3",
+            "domain": "airline",
+            "method": "schema_only",
+            "benchmark_adapter_mode": "external",
+            "max_concurrency": 10,
+            "fault_rate": 0.2,
+        },
+        {
+            "benchmark": "tau3",
+            "domain": "airline",
+            "method": "adagentflow_rt",
+            "benchmark_adapter_mode": "external",
+            "max_concurrency": 10,
+            "fault_rate": 0.2,
+        },
+        {
+            "benchmark": "agentchange",
+            "domain": "retail",
+            "method": "adagentflow_rt",
+            "benchmark_adapter_mode": "external",
+            "TSR": 0.8,
+            "TUE": 4,
+            "TCRR": 0.7,
+            "GSRT": 11.5,
+        },
+    ]
+
+    report = audit_summaries(rows, require_external_main=True, require_agentchange=True)
+
+    assert report["ok"] is True
+    assert report["external_tau3_rows"] == 4
+    assert report["agentchange_rows"] == 1

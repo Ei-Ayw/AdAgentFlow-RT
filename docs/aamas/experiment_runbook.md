@@ -95,6 +95,19 @@ Finalize a completed suite into summaries and paper-facing artifacts:
 The finalize report records summary locations, generated paper artifacts, and provenance for result auditing.
 `finalize_suite` fails when no result rows are found; use `--allow-empty` only for dry-run artifact plumbing checks, not for paper claims.
 
+Audit summaries before turning them into paper claims:
+
+```bash
+.venv/bin/python -m experiments.harness.audit_results \
+  --summary experiments/results/main/compressed/summary.json \
+  --summary experiments/results/main/agentchange/summary.json \
+  --require-external-main \
+  --require-agentchange \
+  --json-output experiments/results/main/result_audit.json
+```
+
+For mock smoke runs, omit the `--require-*` flags and treat warnings as scope markers rather than failures.
+
 Matrix and suite aggregation preserve `suite_run`, `max_concurrency`, `fault_rate`, and the concrete stressor list in `stress`. These fields drive the success-vs-concurrency, latency-vs-concurrency, and recovery-vs-fault-rate figures.
 
 Available suite configs:
