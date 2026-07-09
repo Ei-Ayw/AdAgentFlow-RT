@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdAgentFlow Dashboard</title>
+    <link rel="stylesheet" href="/dashboard/style.css">
+</head>
+<body>
+<div class="header">
+    <h1>🚀 AdAgentFlow Dashboard</h1>
+    <p class="subtitle">面向电商短视频广告生成的多 Agent 长任务可靠性框架</p>
+</div>
+
+<nav class="nav-bar" style="max-width:1280px;margin:0 auto 16px;display:flex;gap:12px;font-size:13px;">
+    <a href="/dashboard/index.html" style="color:#93c5fd;text-decoration:none;padding:6px 12px;border:1px solid rgba(148,163,184,0.25);border-radius:6px;">总览</a>
+    <a href="/dashboard/trace.html" style="color:#93c5fd;text-decoration:none;padding:6px 12px;border:1px solid rgba(148,163,184,0.25);border-radius:6px;">Trace 时间线</a>
+</nav>
+
+<div class="container">
+
+    <section class="card">
+        <h2>📊 任务总览</h2>
+        <div id="task-summary" class="metrics-grid"></div>
+    </section>
+
+    <section class="card">
+        <h2>⚡ 性能指标</h2>
+        <div id="performance-metrics" class="metrics-grid"></div>
+    </section>
+
+    <section class="card">
+        <h2>🧩 节点成功率</h2>
+        <table id="node-success-table" class="data-table">
+            <thead><tr><th>节点</th><th>执行次数</th><th>成功次数</th><th>成功率</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <section class="card">
+        <h2>❌ 失败原因 Top 5</h2>
+        <table id="failure-top-table" class="data-table">
+            <thead><tr><th>失败原因</th><th>次数</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <section class="card">
+        <h2>💀 未处理的死信任务</h2>
+        <table id="dead-letter-table" class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th><th>task_id</th><th>step_id</th><th>失败原因</th>
+                    <th>创建时间</th><th>操作</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <section class="card">
+        <h2>📋 最近任务</h2>
+        <table id="recent-tasks-table" class="data-table">
+            <thead>
+                <tr>
+                    <th>task_id</th><th>商品</th><th>平台</th><th>状态</th>
+                    <th>重试</th><th>最后失败原因</th><th>创建时间</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+
+    <section class="card">
+        <h2>🛠 手动提交测试任务</h2>
+        <form id="submit-form" class="submit-form">
+            <label>商品名称: <input name="product_name" value="Portable Neck Fan" required></label>
+            <label>目标用户: <input name="target_user" value="commuters and outdoor workers"></label>
+            <label>卖点 (逗号分隔):
+                <input name="selling_points" value="hands-free cooling, long battery life, lightweight design">
+            </label>
+            <label>平台:
+                <select name="platform">
+                    <option value="TikTok">TikTok</option>
+                    <option value="Instagram Reels">Instagram Reels</option>
+                    <option value="YouTube Shorts">YouTube Shorts</option>
+                </select>
+            </label>
+            <label>风格: <input name="style" value="dramatic before-after ad"></label>
+            <label>时长(秒): <input name="duration" type="number" value="15"></label>
+            <button type="submit">提交任务</button>
+            <div id="submit-result" class="submit-result"></div>
+        </form>
+    </section>
+
+    <footer class="footer">
+        <p>AdAgentFlow v1.0 · 自动刷新 <span id="refresh-status">已启用</span> · 通过 /api/v1/dashboard 获取数据</p>
+    </footer>
+</div>
+
+<script src="/dashboard/dashboard.js"></script>
+</body>
+</html>
