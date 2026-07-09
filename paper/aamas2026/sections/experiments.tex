@@ -9,6 +9,25 @@ The main setting varies concurrency, fault rate, domains, trials, and runtime st
 
 The current repository includes smoke artifacts produced by the deterministic harness. The results are not full benchmark claims; they validate that runtime traces, stressors, metrics, figures, and tables are generated end-to-end.
 
+Table~\ref{tab:evidence-status} records the current evidentiary status of each experimental claim. We use this ledger to prevent smoke artifacts from being interpreted as full tau2-bench / tau3-bench or AgentChangeBench results. The automated `audit\_results' gate must pass with `--require-external-main' and `--require-agentchange' before replacing the smoke-backed figures with paper claims.
+
+\begin{table}[t]
+    \centering
+    \caption{Evidence status for the current artifact.}
+    \label{tab:evidence-status}
+    \begin{tabular}{lll}
+        \toprule
+        Claim & Status & Gate \\
+        \midrule
+        Harness execution & Complete & Smoke JSONL \\
+        Runtime metrics & Complete & Aggregation \\
+        Main benchmark & Pending & External audit \\
+        AgentChangeBench & Pending & External audit \\
+        Paper figures & Smoke-backed & Finalize suite \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figs/success_vs_concurrency.pdf}

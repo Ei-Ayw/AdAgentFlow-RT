@@ -1,0 +1,6 @@
+claim,artifact,status,gate
+End-to-end harness execution,experiments/results/smoke/*.jsonl,complete,pytest and smoke aggregation
+Runtime metrics and traces,experiments/results/smoke/*summary.json,complete,summary contains runtime metrics and trace counts
+Main tau2/tau3 benchmark claims,external tau3 summaries,pending, audit_results --require-external-main
+AgentChangeBench recovery claims,external agentchange summaries,pending, audit_results --require-agentchange
+Paper tables and figures,paper/aamas2026/tables and figs,smoke-backed, finalize_suite after real summaries
