@@ -21,10 +21,10 @@ BT /F1 9 Tf 48 686 Td (benchmark=agentchange, domain=airline, method=adagentflow
 BT /F1 9 Tf 48 668 Td (benchmark=agentchange, domain=airline, method=retry_only, metric=GSRT, value=5.0) Tj ET
 BT /F1 9 Tf 48 650 Td (benchmark=agentchange, domain=airline, method=retry_only, metric=TCRR, value=0.0) Tj ET
 BT /F1 9 Tf 48 632 Td (benchmark=agentchange, domain=airline, method=retry_only, metric=recovery_success_rate, valu) Tj ET
-BT /F1 9 Tf 48 614 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=GSRT, value=4.833333333333) Tj ET
+BT /F1 9 Tf 48 614 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=GSRT, value=3.916666666666) Tj ET
 BT /F1 9 Tf 48 596 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=TCRR, value=0.0) Tj ET
 BT /F1 9 Tf 48 578 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=recovery_success_rate, val) Tj ET
-BT /F1 9 Tf 48 560 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=GSRT, value=6.166666666666667) Tj ET
+BT /F1 9 Tf 48 560 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=GSRT, value=6.333333333333333) Tj ET
 BT /F1 9 Tf 48 542 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=TCRR, value=0.0) Tj ET
 BT /F1 9 Tf 48 524 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=recovery_success_rate, value=0) Tj ET
 BT /F1 9 Tf 48 506 Td (... 84 more rows) Tj ET

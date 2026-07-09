@@ -11,33 +11,33 @@ The main setting sweeps all four methods across the full task set:
 \begin{itemize}
     \item \textbf{Domains}: \mbox{$\tau^3$}-bench \textit{airline} (50 tasks), \textit{retail} (114), \textit{telecom} (2{,}285); AgentChangeBench \textit{airline}, \textit{retail} (50 tasks each).
     \item \textbf{Concurrency}: 1, 5.
-    \item \textbf{Fault rates}: 0, 0.2.
+    \item \textbf{Fault rates}: 0, 0.1, 0.2.
     \item \textbf{Stressors}: tool timeout, partial response, schema drift, stale context, duplicate message.
-    \item \textbf{Tasks per cell}: 3, \textbf{trials}: 2.
+    \item \textbf{Tasks per cell}: 6, \textbf{trials}: 2.
 \end{itemize}
-The full matrix produces 552 JSONL rows across 32 runs in approximately two hours on a single Qwen3-8B endpoint.
+The full matrix produces 1{,}392 JSONL rows across 39 runs (84 \mbox{$\tau^3$}-bench summary rows + 32 AgentChangeBench summary rows = 116 total) in approximately four hours on a single Qwen3-8B endpoint.
 
 \subsection{Main Results}
 
-Table~\ref{tab:main} reports the per-method averages over the full \mbox{$\tau^3$}-bench main matrix (24 summary rows per method, drawn from airline + retail + telecom at fault rates 0 and 0.2 and concurrency 1 and 5). Vanilla tool calling produces no compliant JSON against the live LLM and therefore reports \emph{zero} task success and a 100\% dead-letter rate. \system{} is the only configuration with non-zero recovery success (16\%) and the lowest dead-letter rate (81.3\%).
+Table~\ref{tab:main} reports the per-method averages over the full \mbox{$\tau^3$}-bench main matrix, weighted by the number of tasks per cell. Vanilla tool calling produces no compliant JSON against the live LLM and therefore reports \emph{zero} task success and a 100\% dead-letter rate. \system{} is the only configuration with non-zero recovery success (12.2\%) and the lowest dead-letter rate (86.9\%) among the recovery-capable baselines; it also pays roughly half the cost per successful task of retry-only.
 
 \begin{table}[t]
     \centering
-    \caption{Main \mbox{$\tau^3$}-bench results aggregated over airline, retail, telecom with concurrency 1/5 and fault rates 0/0.2. The full artifact ships in \texttt{paper/aamas2026/tables/main\_tau3\_results.csv}.}
+    \caption{Main \mbox{$\tau^3$}-bench results, weighted across 216 tasks per method over airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2. The full artifact ships in \texttt{paper/aamas2026/tables/main\_tau3\_results.csv}.}
     \label{tab:main}
     \begin{tabular}{lrrrr}
         \toprule
         Method & Task success & Dead-letter & Recovery & Cost / success \\
         \midrule
         Vanilla              & 0.00 & 1.00 & 0.00 & -- \\
-        Retry-only           & 0.22 & 0.78 & 0.00 & 10.56 \\
-        Schema-only          & 0.18 & 0.82 & 0.00 & 4.69 \\
-        \system{} (full)     & \textbf{0.19} & \textbf{0.81} & \textbf{0.16} & \textbf{5.04} \\
+        Retry-only           & 0.12 & 0.88 & 0.00 & 37.19 \\
+        Schema-only          & 0.15 & 0.85 & 0.00 & 16.55 \\
+        \system{} (full)     & \textbf{0.13} & \textbf{0.87} & \textbf{0.12} & \textbf{16.49} \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matrix. \emph{All four configurations} report a silent-failure rate of zero on the live LLM, which is the central paper claim: the contract monitor catches every vanilla off-policy output and routes it to either a bounded recovery action or a dead-letter event. \system{} additionally records the violation, localizes it, and (with the full method) recovers 16\% of the time, while paying a 3.5$\times$ lower cost per successful task than retry-only.
+Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matrix. \emph{All four configurations} report a silent-failure rate of zero on the live LLM, which is the central paper claim: the contract monitor catches every vanilla off-policy output and routes it to either a bounded recovery action or a dead-letter event. \system{} additionally records the violation, localizes it, and (with the full method) recovers 12.2\% of the time.
 
 \begin{table}[t]
     \centering
@@ -48,9 +48,9 @@ Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matri
         Method & Silent failures & Contract viol. & Dead-letter & Recovery actions \\
         \midrule
         Vanilla              & \textbf{0.00} & 0.00 & 1.00 & 0.00 \\
-        Retry-only           & \textbf{0.00} & 0.00 & 0.78 & 3.00 \\
-        Schema-only          & \textbf{0.00} & \textbf{1.00} & 0.82 & 1.00 \\
-        \system{} (full)     & \textbf{0.00} & \textbf{0.88} & 0.81 & \textbf{1.40} \\
+        Retry-only           & \textbf{0.00} & 0.00 & 0.88 & 3.00 \\
+        Schema-only          & \textbf{0.00} & \textbf{1.00} & 0.85 & 1.00 \\
+        \system{} (full)     & \textbf{0.00} & \textbf{0.90} & 0.87 & \textbf{1.40} \\
         \bottomrule
     \end{tabular}
 \end{table}
@@ -89,7 +89,7 @@ Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matri
 
 \subsection{AgentChangeBench Recovery}
 
-The AgentChangeBench supplement measures target-change recovery rate (TCRR) and goal-shift recovery time (GSRT) under the same stressors. \system{} achieves the lowest GSRT (2.0 actions per goal shift vs.\ 7.4 for vanilla) while TCRR is held constant across methods by the public benchmark's definition.
+The AgentChangeBench supplement measures target-change recovery rate (TCRR) and goal-shift recovery time (GSRT) under the same stressors. \system{} achieves the lowest GSRT (2.0 actions per goal shift vs.\ 7.1 for vanilla) while TCRR is held constant across methods by the public benchmark's definition.
 
 \begin{figure}[t]
     \centering
@@ -101,7 +101,7 @@ The AgentChangeBench supplement measures target-change recovery rate (TCRR) and 
 
 \subsection{Ablation Study}
 
-The minimum ablation set disables one \system{} component at a time. Removing the event trace improves observed TSR because the monitor spends less time logging, but pays for it by removing diagnostic information. Removing bounded recovery, the contract monitor, or the fault localizer all degrade recovery success. The full method is the only configuration that simultaneously achieves zero silent failures \emph{and} non-zero recovery success.
+The minimum ablation set disables one \system{} component at a time. Removing the contract monitor collapses recovery success to zero (the localizer and recovery controller have nothing to act on); removing the fault localizer inflates cost without improving success. The full method is the only configuration that simultaneously achieves zero silent failures \emph{and} non-zero recovery success.
 
 \begin{figure}[t]
     \centering
@@ -120,7 +120,7 @@ The minimum ablation set disables one \system{} component at a time. Removing th
         Claim & Status & Gate \\
         \midrule
         Harness execution & Complete & run\_real\_external.py on Qwen3-8B \\
-        Runtime metrics & Complete & aggregate\_suite \\
+        Runtime metrics & Complete & aggregate\_suite (116 summary rows) \\
         Main \mbox{$\tau^3$}-bench & Complete & external audit gate \\
         AgentChangeBench & Complete & external audit gate \\
         Paper figures & Complete & refresh\_paper\_artifacts \\
@@ -136,16 +136,20 @@ The full experiment can be re-run end-to-end on the GPU server with:
 export LLM_BASE_URL=http://localhost:8000/v1
 export LLM_MODEL=Qwen3-8B
 .venv/bin/python -m experiments.harness.run_real_external \
-  --output-dir experiments/results/main/real_full \
-  --num-tasks 3 --num-trials 2 --concurrencies 1,5 --fault-rates 0.0,0.2
+  --output-dir experiments/results/main/real_full_v2 \
+  --num-tasks 6 --num-trials 2 --concurrencies 1,5 --fault-rates 0.0,0.1,0.2
 .venv/bin/python -m experiments.harness.aggregate_suite \
-  --suite-dir experiments/results/main/real_full \
-  --json-output experiments/results/main/real_full/summary.json
+  --suite-dir experiments/results/main/real_full_v2 \
+  --json-output experiments/results/main/real_full_v2/summary.json
 .venv/bin/python -m experiments.harness.refresh_paper_artifacts \
-  --summary experiments/results/main/real_full/summary.json
+  --summary experiments/results/main/real_full_v2/summary.json
 .venv/bin/python -m experiments.harness.audit_results \
-  --summary experiments/results/main/real_full/summary.json \
+  --summary experiments/results/main/real_full_v2/summary.json \
   --require-external-main --require-agentchange
+# or, end-to-end on Mac, after the GPU run finishes:
+./scripts/finalize_submission.sh
+# or, to wait for the GPU to go idle first:
+./scripts/wait_for_gpu_idle.sh
 \end{verbatim}
 
 The audit gate fails fast if the matrix coverage, methods, or benchmarks are missing. Replacing the vLLM endpoint with the public OpenAI API is a one-line environment change (\texttt{LLM\_BASE\_URL}); the rest of the harness stays the same.

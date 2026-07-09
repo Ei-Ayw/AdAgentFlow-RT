@@ -15,19 +15,19 @@ endobj
 << /Length 1577 >>
 stream
 BT /F1 9 Tf 48 740 Td (Figure 8: Ablation study) Tj ET
-BT /F1 9 Tf 48 722 Td (source=/root/experiments/results/real_full/agentchange_airline_c1_f0p0_schema_drift,stale.js) Tj ET
-BT /F1 9 Tf 48 704 Td (source=/root/experiments/results/real_full/agentchange_airline_c1_f0p2_schema_drift,stale.js) Tj ET
-BT /F1 9 Tf 48 686 Td (source=/root/experiments/results/real_full/agentchange_airline_c5_f0p0_schema_drift,stale.js) Tj ET
-BT /F1 9 Tf 48 668 Td (source=/root/experiments/results/real_full/agentchange_airline_c5_f0p2_schema_drift,stale.js) Tj ET
-BT /F1 9 Tf 48 650 Td (source=/root/experiments/results/real_full/agentchange_retail_c1_f0p0_schema_drift,stale.jso) Tj ET
-BT /F1 9 Tf 48 632 Td (source=/root/experiments/results/real_full/agentchange_retail_c1_f0p2_schema_drift,stale.jso) Tj ET
-BT /F1 9 Tf 48 614 Td (source=/root/experiments/results/real_full/agentchange_retail_c5_f0p0_schema_drift,stale.jso) Tj ET
-BT /F1 9 Tf 48 596 Td (source=/root/experiments/results/real_full/agentchange_retail_c5_f0p2_schema_drift,stale.jso) Tj ET
-BT /F1 9 Tf 48 578 Td (source=/root/experiments/results/real_full/tau3_airline_c1_f0p0_tool_timeout,parti.jsonl, be) Tj ET
-BT /F1 9 Tf 48 560 Td (source=/root/experiments/results/real_full/tau3_airline_c1_f0p2_tool_timeout,parti.jsonl, be) Tj ET
-BT /F1 9 Tf 48 542 Td (source=/root/experiments/results/real_full/tau3_airline_c1_f0p2_tool_timeout,parti__without_) Tj ET
-BT /F1 9 Tf 48 524 Td (source=/root/experiments/results/real_full/tau3_airline_c1_f0p2_tool_timeout,parti__without_) Tj ET
-BT /F1 9 Tf 48 506 Td (... 20 more rows) Tj ET
+BT /F1 9 Tf 48 722 Td (source=experiments/results/main/real_full_v2/agentchange_airline_c1_f0p0_schema_drift,stale.) Tj ET
+BT /F1 9 Tf 48 704 Td (source=experiments/results/main/real_full_v2/agentchange_airline_c1_f0p1_schema_drift,stale.) Tj ET
+BT /F1 9 Tf 48 686 Td (source=experiments/results/main/real_full_v2/agentchange_airline_c5_f0p0_schema_drift,stale.) Tj ET
+BT /F1 9 Tf 48 668 Td (source=experiments/results/main/real_full_v2/agentchange_airline_c5_f0p1_schema_drift,stale.) Tj ET
+BT /F1 9 Tf 48 650 Td (source=experiments/results/main/real_full_v2/agentchange_retail_c1_f0p0_schema_drift,stale.j) Tj ET
+BT /F1 9 Tf 48 632 Td (source=experiments/results/main/real_full_v2/agentchange_retail_c1_f0p1_schema_drift,stale.j) Tj ET
+BT /F1 9 Tf 48 614 Td (source=experiments/results/main/real_full_v2/agentchange_retail_c5_f0p0_schema_drift,stale.j) Tj ET
+BT /F1 9 Tf 48 596 Td (source=experiments/results/main/real_full_v2/agentchange_retail_c5_f0p1_schema_drift,stale.j) Tj ET
+BT /F1 9 Tf 48 578 Td (source=experiments/results/main/real_full_v2/tau3_airline_c1_f0p0_tool_timeout,parti.jsonl, ) Tj ET
+BT /F1 9 Tf 48 560 Td (source=experiments/results/main/real_full_v2/tau3_airline_c1_f0p1_tool_timeout,parti.jsonl, ) Tj ET
+BT /F1 9 Tf 48 542 Td (source=experiments/results/main/real_full_v2/tau3_airline_c1_f0p2_tool_timeout,parti.jsonl, ) Tj ET
+BT /F1 9 Tf 48 524 Td (source=experiments/results/main/real_full_v2/tau3_airline_c1_f0p2_tool_timeout,parti__withou) Tj ET
+BT /F1 9 Tf 48 506 Td (... 26 more rows) Tj ET
 endstream
 endobj
 xref

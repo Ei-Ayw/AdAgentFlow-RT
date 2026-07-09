@@ -1,0 +1,102 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{5}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{}, \showDOI{}, and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showDOI}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showDOI #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showDOI      \undefined \def \showDOI       #1{#1}\fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[{AgentChangeBench Contributors}(2026)]%
+        {agentchangebench}
+\bibfield{author}{\bibinfo{person}{{AgentChangeBench Contributors}}.}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{AgentChangeBench}.
+\newblock
+\newblock
+\newblock
+\shownote{Public benchmark used as a supplementary goal-change workload}.
+
+
+\bibitem[Rosenthal et~al\mbox{.}(2020)]%
+        {chaosengineering}
+\bibfield{author}{\bibinfo{person}{Casey Rosenthal}, \bibinfo{person}{Nora
+  Jones}, \bibinfo{person}{Benjamin Daly}, {and} \bibinfo{person}{Aaron
+  Blohowiak}.} \bibinfo{year}{2020}\natexlab{}.
+\newblock \bibinfo{booktitle}{\emph{Chaos Engineering: System Resiliency in
+  Practice}}.
+\newblock \bibinfo{publisher}{O'Reilly Media}.
+\newblock
+
+
+\bibitem[{Sierra Research}(2026)]%
+        {tau2bench}
+\bibfield{author}{\bibinfo{person}{{Sierra Research}}.}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{tau2-bench: Public Task Environments for Agent
+  Evaluation}.
+\newblock
+  \bibinfo{howpublished}{\url{https://github.com/sierra-research/tau2-bench}}.
+\newblock
+
+
+\bibitem[Wu et~al\mbox{.}(2023)]%
+        {autogen}
+\bibfield{author}{\bibinfo{person}{Qingyun Wu}, \bibinfo{person}{Gagan Bansal},
+  \bibinfo{person}{Jieyu Zhang}, \bibinfo{person}{Yiran Wu},
+  \bibinfo{person}{Beibin Li}, \bibinfo{person}{Erkang Zhu},
+  \bibinfo{person}{Li Jiang}, \bibinfo{person}{Xiaoyun Zhang},
+  \bibinfo{person}{Shaokun Zhang}, \bibinfo{person}{Jiale Liu},
+  \bibinfo{person}{Ahmed~H. Awadallah}, \bibinfo{person}{Ryen~W. White},
+  \bibinfo{person}{Doug Burger}, {and} \bibinfo{person}{Chi Wang}.}
+  \bibinfo{year}{2023}\natexlab{}.
+\newblock \bibinfo{title}{AutoGen: Enabling Next-Gen LLM Applications via
+  Multi-Agent Conversation}.
+\newblock
+\newblock
+\showeprint[arxiv]{2308.08155}~[cs.AI]
+
+
+\bibitem[Yao et~al\mbox{.}(2023)]%
+        {react}
+\bibfield{author}{\bibinfo{person}{Shunyu Yao}, \bibinfo{person}{Jeffrey Zhao},
+  \bibinfo{person}{Dian Yu}, \bibinfo{person}{Nan Du}, \bibinfo{person}{Izhak
+  Shafran}, \bibinfo{person}{Karthik Narasimhan}, {and} \bibinfo{person}{Yuan
+  Cao}.} \bibinfo{year}{2023}\natexlab{}.
+\newblock \showarticletitle{ReAct: Synergizing Reasoning and Acting in Language
+  Models}. In \bibinfo{booktitle}{\emph{International Conference on Learning
+  Representations}}.
+\newblock
+
+
+\end{thebibliography}

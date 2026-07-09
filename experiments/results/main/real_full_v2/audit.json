@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "row_count": 116,
+  "benchmarks": [
+    "agentchange",
+    "tau3"
+  ],
+  "adapter_modes": [
+    "external"
+  ],
+  "methods": [
+    "adagentflow_rt",
+    "retry_only",
+    "schema_only",
+    "vanilla"
+  ],
+  "tau3_rows": 84,
+  "external_tau3_rows": 84,
+  "agentchange_rows": 32,
+  "errors": [],
+  "warnings": []
+}

@@ -140,25 +140,30 @@ artifacts, and audit in one go:
 export LLM_BASE_URL=http://localhost:8000/v1
 export LLM_MODEL=Qwen3-8B
 .venv/bin/python -m experiments.harness.run_real_external \
-    --output-dir experiments/results/main/real_full \
-    --num-tasks 3 --num-trials 2 --concurrencies 1,5 --fault-rates 0.0,0.2
+    --output-dir experiments/results/main/real_full_v2 \
+    --num-tasks 6 --num-trials 2 --concurrencies 1,5 --fault-rates 0.0,0.1,0.2
 .venv/bin/python -m experiments.harness.aggregate_suite \
-    --suite-dir experiments/results/main/real_full \
-    --json-output experiments/results/main/real_full/summary.json
+    --suite-dir experiments/results/main/real_full_v2 \
+    --json-output experiments/results/main/real_full_v2/summary.json
 .venv/bin/python -m experiments.harness.refresh_paper_artifacts \
-    --summary experiments/results/main/real_full/summary.json
+    --summary experiments/results/main/real_full_v2/summary.json
 .venv/bin/python -m experiments.harness.audit_results \
-    --summary experiments/results/main/real_full/summary.json \
+    --summary experiments/results/main/real_full_v2/summary.json \
     --require-external-main --require-agentchange
 ```
+
+To wait for the GPU to go idle first (then automatically launch and
+finalize the matrix), use `scripts/wait_for_gpu_idle.sh`. To pull the
+results, refresh artifacts, rebuild the supplementary zip, and build the
+final PDF, use `scripts/finalize_submission.sh`.
 
 This is the recommended paper-claim path. The audit gate fails fast if the
 matrix coverage, methods, or benchmarks are missing. The full real-LLM run
 sweeps \tau{}^3-bench × {airline, retail, telecom} × concurrency {1, 5} ×
-fault {0, 0.2} and AgentChangeBench × {airline, retail} × concurrency {1, 5}
-× fault {0, 0.2}, with 4 ablations (without contract monitor, without fault
-localizer, without bounded recovery, without event trace). Produces 552
-JSONL rows across 32 runs in approximately two hours on a single Qwen3-8B
+fault {0, 0.1, 0.2} and AgentChangeBench × {airline, retail} × concurrency {1, 5}
+× fault {0, 0.1, 0.2}, with 4 ablations (without contract monitor, without fault
+localizer, without bounded recovery, without event trace). Produces 1{,}392
+JSONL rows across 39 runs in approximately four hours on a single Qwen3-8B
 endpoint.
 
 Matrix and suite aggregation preserve `suite_run`, `max_concurrency`, `fault_rate`, and the concrete stressor list in `stress`. These fields drive the success-vs-concurrency, latency-vs-concurrency, and recovery-vs-fault-rate figures.
