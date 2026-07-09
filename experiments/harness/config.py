@@ -61,3 +61,14 @@ def config_stressors(config: Dict[str, Any]) -> list[str]:
     if isinstance(stressors, str):
         return [part.strip() for part in stressors.split(",") if part.strip()]
     return [str(stressor) for stressor in stressors]
+
+
+def config_list(config: Dict[str, Any], key: str, default: list[Any] | None = None) -> list[Any]:
+    value = config.get(key, default or [])
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        return [part.strip() for part in value.split(",") if part.strip()]
+    return [value]

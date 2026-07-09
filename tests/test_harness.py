@@ -5,9 +5,11 @@ from experiments.harness.benchmark_adapters.agentchange_adapter import AgentChan
 from experiments.harness.benchmark_adapters.tau3_adapter import Tau3BenchmarkAdapter
 from experiments.harness.config import config_methods, config_stressors, load_simple_config
 from experiments.harness.export_paper_tables import load_summaries, write_failure_breakdown, write_table
+from experiments.harness.aggregate_suite import main as aggregate_suite_main
 from experiments.harness.metrics.runtime_metrics import compute_runtime_metrics
 from experiments.harness.metrics.trace_metrics import compute_trace_metrics
 from experiments.harness.plot_results import build_figure_rows, write_ablation_table, write_figures
+from experiments.harness.run_suite import build_suite_plan
 from experiments.harness.runtime_adapters.adagentflow_rt import AdAgentFlowRTAdapter
 from experiments.harness.stressors.schema_drift import SchemaDriftStressor
 from experiments.harness.workload.concurrency_runner import run_tasks
@@ -197,3 +199,43 @@ def test_plot_results_writes_data_backed_figures(tmp_path):
     assert (fig_dir / "ablation_study.csv").exists()
     assert "without_contract_monitor" in table_path.read_text(encoding="utf-8")
     assert any(row["metric"] == "task_success_rate" for row in figure_rows["success_vs_concurrency"])
+
+
+def test_suite_plan_expands_protocol_matrix(tmp_path):
+    suite = load_simple_config("experiments/harness/configs/suite_ablation_schema_drift.yaml")
+    plan = build_suite_plan(suite, output_dir=tmp_path)
+
+    assert plan["suite_name"] == "ablation_schema_drift"
+    assert plan["run_count"] == 5
+    assert plan["execute_by_default"] is False
+    labels = {item["label"] for item in plan["runs"]}
+    assert any("without_contract_monitor" in label for label in labels)
+    assert all(item["output"].endswith(".jsonl") for item in plan["runs"])
+
+
+def test_aggregate_suite_summarizes_jsonl_directory(tmp_path, monkeypatch):
+    suite_dir = tmp_path / "suite"
+    suite_dir.mkdir()
+    (suite_dir / "one.jsonl").write_text(
+        '{"benchmark":"mock","domain":"airline","task_id":"t1","trial_id":0,'
+        '"method":"vanilla","run_id":"r1","success":true,'
+        '"native_metrics":{"task_success":true},"runtime_metrics":{},'
+        '"events":[],"latency_ms":1000,"tool_calls":2,"llm_calls":1,'
+        '"attempts":1,"injected_faults":[],"recovered":false,"dead_letter":false}\n',
+        encoding="utf-8",
+    )
+    output = tmp_path / "summary.json"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "aggregate_suite",
+            "--suite-dir",
+            str(suite_dir),
+            "--json-output",
+            str(output),
+        ],
+    )
+
+    aggregate_suite_main()
+
+    assert '"total_tasks": 1' in output.read_text(encoding="utf-8")

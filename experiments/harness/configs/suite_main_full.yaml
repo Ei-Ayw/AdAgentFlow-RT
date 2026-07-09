@@ -1,0 +1,10 @@
+suite_name: main_full
+benchmarks: [tau3]
+domains: [airline, retail, telecom]
+num_tasks: 30
+num_trials: 3
+concurrency_values: [1, 5, 10, 20]
+fault_rates: [0.0, 0.1, 0.2]
+stress_profiles: [none, low, medium]
+methods: [vanilla, retry_only, schema_only, adagentflow_rt]
+max_retries: 2

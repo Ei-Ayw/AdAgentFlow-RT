@@ -1,0 +1,10 @@
+suite_name: agentchange_supplement
+benchmarks: [agentchange]
+domains: [airline, retail]
+num_tasks: 30
+num_trials: 2
+concurrency_values: [1, 10]
+fault_rates: [0.0, 0.2]
+stress_profiles: [none, medium]
+methods: [vanilla, retry_only, adagentflow_rt]
+max_retries: 2

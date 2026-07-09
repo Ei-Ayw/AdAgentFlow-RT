@@ -45,6 +45,41 @@ Run a fault-injection smoke:
   --output experiments/results/smoke/tau3_airline_stress_medium.jsonl
 ```
 
+## Suite Planning
+
+Full experiment suites are dry-run planned by default. This is the safe way to inspect the matrix before spending model/API budget:
+
+```bash
+.venv/bin/python -m experiments.harness.run_suite \
+  --suite-config experiments/harness/configs/suite_main_compressed.yaml \
+  --output-dir experiments/results/main/compressed_plan
+```
+
+The command writes `suite_manifest.json` with one JSONL output target per planned run. Add `--execute` only after smoke validation and external benchmark setup:
+
+```bash
+.venv/bin/python -m experiments.harness.run_suite \
+  --suite-config experiments/harness/configs/suite_main_compressed.yaml \
+  --output-dir experiments/results/main/compressed \
+  --execute
+```
+
+For smoke suites, aggregate all JSONL outputs in one directory:
+
+```bash
+.venv/bin/python -m experiments.harness.aggregate_suite \
+  --suite-dir experiments/results/smoke/suite_smoke_all \
+  --json-output experiments/results/smoke/suite_smoke_all/summary.json
+```
+
+Available suite configs:
+
+- `suite_smoke_all.yaml`
+- `suite_main_compressed.yaml`
+- `suite_main_full.yaml`
+- `suite_agentchange_supplement.yaml`
+- `suite_ablation_schema_drift.yaml`
+
 ## External Benchmarks
 
 For tau2-bench / tau3-bench and AgentChangeBench, set `benchmark_repo_path` in the config. If the repo path is missing, adapters fail with instructions instead of silently changing benchmark data. If omitted, the adapter uses deterministic mock tasks that preserve the normalized result shape.

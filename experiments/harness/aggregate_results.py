@@ -5,6 +5,7 @@ import argparse
 import csv
 import json
 from collections import defaultdict
+from dataclasses import fields
 from pathlib import Path
 
 from experiments.harness.metrics.benchmark_metrics import compute_benchmark_metrics
@@ -49,11 +50,13 @@ def main() -> None:
 
 def load_results(path: Path) -> list[RuntimeResult]:
     rows: list[RuntimeResult] = []
+    allowed = {field.name for field in fields(RuntimeResult)}
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
             if not line.strip():
                 continue
-            rows.append(RuntimeResult(**json.loads(line)))
+            payload = json.loads(line)
+            rows.append(RuntimeResult(**{key: value for key, value in payload.items() if key in allowed}))
     return rows
 
 

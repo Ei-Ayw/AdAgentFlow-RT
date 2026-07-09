@@ -1,0 +1,102 @@
+{
+  "suite_name": "ablation_schema_drift",
+  "run_count": 5,
+  "execute_by_default": false,
+  "runs": [
+    {
+      "label": "tau3_airline_c1_f1p0_schema_drift",
+      "output": "experiments/results/ablation/schema_drift_plan/tau3_airline_c1_f1p0_schema_drift.jsonl",
+      "config": {
+        "suite_run": "ablation_schema_drift",
+        "benchmark": "tau3",
+        "domain": "airline",
+        "num_tasks": 3,
+        "num_trials": 1,
+        "max_concurrency": 1,
+        "fault_rate": 1.0,
+        "stress": "schema_drift",
+        "methods": [
+          "adagentflow_rt"
+        ],
+        "max_retries": 2,
+        "ablation": null
+      }
+    },
+    {
+      "label": "tau3_airline_c1_f1p0_schema_drift_without_contract_monitor",
+      "output": "experiments/results/ablation/schema_drift_plan/tau3_airline_c1_f1p0_schema_drift_without_contract_monitor.jsonl",
+      "config": {
+        "suite_run": "ablation_schema_drift",
+        "benchmark": "tau3",
+        "domain": "airline",
+        "num_tasks": 3,
+        "num_trials": 1,
+        "max_concurrency": 1,
+        "fault_rate": 1.0,
+        "stress": "schema_drift",
+        "methods": [
+          "adagentflow_rt"
+        ],
+        "max_retries": 2,
+        "ablation": "without_contract_monitor"
+      }
+    },
+    {
+      "label": "tau3_airline_c1_f1p0_schema_drift_without_fault_localizer",
+      "output": "experiments/results/ablation/schema_drift_plan/tau3_airline_c1_f1p0_schema_drift_without_fault_localizer.jsonl",
+      "config": {
+        "suite_run": "ablation_schema_drift",
+        "benchmark": "tau3",
+        "domain": "airline",
+        "num_tasks": 3,
+        "num_trials": 1,
+        "max_concurrency": 1,
+        "fault_rate": 1.0,
+        "stress": "schema_drift",
+        "methods": [
+          "adagentflow_rt"
+        ],
+        "max_retries": 2,
+        "ablation": "without_fault_localizer"
+      }
+    },
+    {
+      "label": "tau3_airline_c1_f1p0_schema_drift_without_bounded_recovery",
+      "output": "experiments/results/ablation/schema_drift_plan/tau3_airline_c1_f1p0_schema_drift_without_bounded_recovery.jsonl",
+      "config": {
+        "suite_run": "ablation_schema_drift",
+        "benchmark": "tau3",
+        "domain": "airline",
+        "num_tasks": 3,
+        "num_trials": 1,
+        "max_concurrency": 1,
+        "fault_rate": 1.0,
+        "stress": "schema_drift",
+        "methods": [
+          "adagentflow_rt"
+        ],
+        "max_retries": 2,
+        "ablation": "without_bounded_recovery"
+      }
+    },
+    {
+      "label": "tau3_airline_c1_f1p0_schema_drift_without_event_trace",
+      "output": "experiments/results/ablation/schema_drift_plan/tau3_airline_c1_f1p0_schema_drift_without_event_trace.jsonl",
+      "config": {
+        "suite_run": "ablation_schema_drift",
+        "benchmark": "tau3",
+        "domain": "airline",
+        "num_tasks": 3,
+        "num_trials": 1,
+        "max_concurrency": 1,
+        "fault_rate": 1.0,
+        "stress": "schema_drift",
+        "methods": [
+          "adagentflow_rt"
+        ],
+        "max_retries": 2,
+        "ablation": "without_event_trace"
+      }
+    }
+  ]
+}

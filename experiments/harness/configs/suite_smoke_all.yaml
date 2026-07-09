@@ -1,0 +1,10 @@
+suite_name: smoke_all
+benchmarks: [tau3, agentchange]
+domains: [airline, retail]
+num_tasks: 3
+num_trials: 1
+concurrency_values: [1]
+fault_rates: [0.0]
+stress_profiles: [none]
+methods: [vanilla, retry_only, schema_only, adagentflow_rt]
+max_retries: 2
