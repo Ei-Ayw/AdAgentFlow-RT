@@ -22,15 +22,16 @@ def main() -> None:
     results = load_results(Path(args.input))
     grouped = defaultdict(list)
     for result in results:
-        grouped[(result.benchmark, result.domain, result.method)].append(result)
+        grouped[(result.benchmark, result.domain, result.method, result.ablation)].append(result)
 
     summaries = []
-    for (benchmark, domain, method), rows in sorted(grouped.items()):
+    for (benchmark, domain, method, ablation), rows in sorted(grouped.items(), key=lambda item: str(item[0])):
         summaries.append(
             {
                 "benchmark": benchmark,
                 "domain": domain,
                 "method": method,
+                "ablation": ablation,
                 **compute_benchmark_metrics(rows),
                 **compute_runtime_metrics(rows),
             }

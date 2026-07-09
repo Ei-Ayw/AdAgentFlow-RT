@@ -16,6 +16,7 @@ class RuntimeResult:
     method: str
     run_id: str
     success: bool
+    ablation: Optional[str] = None
     native_metrics: Dict[str, Any] = field(default_factory=dict)
     runtime_metrics: Dict[str, Any] = field(default_factory=dict)
     events: List[Dict[str, Any]] = field(default_factory=list)

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+from experiments.harness.config import config_stressors
 from experiments.harness.benchmark_adapters.agentchange_adapter import AgentChangeBenchmarkAdapter
 from experiments.harness.benchmark_adapters.base import MockBenchmarkAdapter
 from experiments.harness.benchmark_adapters.tau3_adapter import Tau3BenchmarkAdapter
@@ -89,7 +90,8 @@ def main() -> None:
 
 def build_stressors(stress: str, fault_rate: float) -> List[Any]:
     stressors = []
-    for idx, name in enumerate(part.strip() for part in stress.split(",") if part.strip()):
+    stress_config = {"stress": stress}
+    for idx, name in enumerate(config_stressors(stress_config)):
         stressors.append(STRESSORS[name](rate=fault_rate, seed=idx + 17))
     return stressors
 

@@ -47,7 +47,8 @@ class SchemaOnlyAdapter(RuntimeAdapter):
             method=self.method_name,
             run_id=run_id,
             success=success,
-            native_metrics={"task_success": success, **task.native_metrics},
+            ablation=runtime_config.get("ablation"),
+            native_metrics={**task.native_metrics, "task_success": success},
             runtime_metrics={
                 "contract_violations": len(violations),
                 "recovery_actions": 1 if recovered else 0,

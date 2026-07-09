@@ -19,6 +19,7 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
 
     def run_task(self, task, context, stressors, runtime_config):
         run_id = f"run_{uuid4().hex}"
+        ablation = runtime_config.get("ablation")
         registry = ContractRegistry(
             [
                 Contract(
@@ -55,8 +56,10 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
         localizer = FaultLocalizer()
         recovery = RecoveryController()
 
-        event_log.record(run_id=run_id, task_id=task.task_id, event_type="graph.created")
-        event_log.record(run_id=run_id, task_id=task.task_id, event_type="node.started", node_id=node.node_id)
+        trace_enabled = ablation != "without_event_trace"
+        if trace_enabled:
+            event_log.record(run_id=run_id, task_id=task.task_id, event_type="graph.created")
+            event_log.record(run_id=run_id, task_id=task.task_id, event_type="node.started", node_id=node.node_id)
         output = {"resolution": "ok", "policy_compliant": True}
         faults = []
         for stressor in stressors:
@@ -64,50 +67,66 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
             if stressor.should_inject(event):
                 faults.append(stressor.apply(output))
 
-        violations = monitor.before_node(task_id=task.task_id, graph=graph, node=node)
-        violations.extend(
-            monitor.after_node(
-                task_id=task.task_id,
-                node=node,
-                output=output,
-                observed={"latency_ms": 1000, "llm_calls": 1, "tool_calls": 2, "tokens": 500, "retries": 0},
+        violations = []
+        if ablation != "without_contract_monitor":
+            violations = monitor.before_node(task_id=task.task_id, graph=graph, node=node)
+            violations.extend(
+                monitor.after_node(
+                    task_id=task.task_id,
+                    node=node,
+                    output=output,
+                    observed={"latency_ms": 1000, "llm_calls": 1, "tool_calls": 2, "tokens": 500, "retries": 0},
+                )
             )
-        )
         decisions = []
         for violation in violations:
-            event_log.record(
-                run_id=run_id,
-                task_id=task.task_id,
-                event_type="contract.violated",
-                node_id=node.node_id,
-                status="violation",
-                payload=violation.__dict__.copy(),
-            )
-            diagnosis = localizer.diagnose(graph=graph, violation=violation)
-            event_log.record(
-                run_id=run_id,
-                task_id=task.task_id,
-                event_type="fault.localized",
-                node_id=node.node_id,
-                payload=diagnosis.__dict__.copy(),
-            )
-            decision = recovery.select(
-                violation=violation,
-                diagnosis=diagnosis,
-                remaining_budget={"retries": int(runtime_config.get("max_retries", 2))},
-            )
+            if trace_enabled:
+                event_log.record(
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    event_type="contract.violated",
+                    node_id=node.node_id,
+                    status="violation",
+                    payload=violation.__dict__.copy(),
+                )
+            if ablation == "without_fault_localizer":
+                diagnosis = None
+            else:
+                diagnosis = localizer.diagnose(graph=graph, violation=violation)
+                if trace_enabled:
+                    event_log.record(
+                        run_id=run_id,
+                        task_id=task.task_id,
+                        event_type="fault.localized",
+                        node_id=node.node_id,
+                        payload=diagnosis.__dict__.copy(),
+                    )
+            remaining_budget = {"retries": int(runtime_config.get("max_retries", 2))}
+            if ablation == "without_bounded_recovery":
+                remaining_budget = {"retries": 999}
+            if diagnosis is None:
+                decision = _fallback_recovery_decision(violation)
+            else:
+                decision = recovery.select(
+                    violation=violation,
+                    diagnosis=diagnosis,
+                    remaining_budget=remaining_budget,
+                )
             decisions.append(decision)
-            event_log.record(
-                run_id=run_id,
-                task_id=task.task_id,
-                event_type="recovery.selected",
-                node_id=node.node_id,
-                payload=decision.__dict__.copy(),
-                status=decision.action,
-            )
+            _apply_quick_repair(output, decision.action)
+            if trace_enabled:
+                event_log.record(
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    event_type="recovery.selected",
+                    node_id=node.node_id,
+                    payload=decision.__dict__.copy(),
+                    status=decision.action,
+                )
 
         recovered = bool(violations and all(decision.should_continue for decision in decisions))
         success = not violations or recovered
+        native_success = output.get("policy_compliant") is True and "resolution" in output
         if success:
             store.put(
                 Artifact(
@@ -118,19 +137,21 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
                     validation_status="valid" if not violations else "recovered",
                 )
             )
+            if trace_enabled:
+                event_log.record(
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    event_type="artifact.produced",
+                    node_id=node.node_id,
+                    payload={"artifact_id": "resolution_artifact"},
+                )
+        if trace_enabled:
             event_log.record(
                 run_id=run_id,
                 task_id=task.task_id,
-                event_type="artifact.produced",
-                node_id=node.node_id,
-                payload={"artifact_id": "resolution_artifact"},
+                event_type="task.finalized",
+                status="success" if success else "dead_letter",
             )
-        event_log.record(
-            run_id=run_id,
-            task_id=task.task_id,
-            event_type="task.finalized",
-            status="success" if success else "dead_letter",
-        )
         return RuntimeResult(
             benchmark=task.benchmark,
             domain=task.domain,
@@ -139,7 +160,8 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
             method=self.method_name,
             run_id=run_id,
             success=success,
-            native_metrics={"task_success": success, **task.native_metrics},
+            ablation=ablation,
+            native_metrics={**task.native_metrics, "task_success": native_success},
             runtime_metrics={
                 "contract_violations": len(violations),
                 "recovery_actions": len(decisions),
@@ -156,3 +178,22 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
             dead_letter=not success,
             error=None if success else "contract recovery failed",
         )
+
+
+def _apply_quick_repair(output, action: str) -> None:
+    if action != "quick_repair":
+        return
+    if "policyCompliant" in output and "policy_compliant" not in output:
+        output["policy_compliant"] = output.pop("policyCompliant")
+
+
+def _fallback_recovery_decision(violation):
+    from app.runtime.recovery import RecoveryDecision
+
+    return RecoveryDecision(
+        action="retry_same_agent",
+        target_node=violation.node_id,
+        reason=f"without_fault_localizer:{violation.violation_type}",
+        budget_cost={"retries": 1, "recovery_steps": 1},
+        should_continue=True,
+    )
