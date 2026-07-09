@@ -16,6 +16,7 @@ from experiments.harness.aggregate_suite import main as aggregate_suite_main
 from experiments.harness.metrics.runtime_metrics import compute_runtime_metrics
 from experiments.harness.metrics.trace_metrics import compute_trace_metrics
 from experiments.harness.plot_results import build_figure_rows, write_ablation_table, write_figures
+from experiments.harness.refresh_paper_artifacts import refresh_paper_artifacts
 from experiments.harness.run_suite import build_suite_plan
 from experiments.harness.runtime_adapters.adagentflow_rt import AdAgentFlowRTAdapter
 from experiments.harness.stressors.schema_drift import SchemaDriftStressor
@@ -358,6 +359,76 @@ def test_plot_results_writes_data_backed_figures(tmp_path):
     assert (fig_dir / "ablation_study.csv").exists()
     assert "without_contract_monitor" in table_path.read_text(encoding="utf-8")
     assert any(row["metric"] == "task_success_rate" for row in figure_rows["success_vs_concurrency"])
+
+
+def test_refresh_paper_artifacts_writes_tables_and_figures(tmp_path):
+    summary_path = tmp_path / "summary.json"
+    summary_path.write_text(
+        json.dumps(
+            [
+                {
+                    "benchmark": "tau3",
+                    "domain": "airline",
+                    "method": "adagentflow_rt",
+                    "ablation": None,
+                    "benchmark_adapter_mode": "external",
+                    "task_success_rate": 0.9,
+                    "p95_latency_ms": 2200,
+                    "dead_letter_rate": 0.02,
+                    "recovery_success_rate": 0.8,
+                    "cost_per_successful_task": 5.5,
+                    "fault_rate": 0.2,
+                    "max_concurrency": 10,
+                    "fault_class_counts": {"artifact_fault": 2},
+                    "recovery_action_counts": {"quick_repair": 2},
+                },
+                {
+                    "benchmark": "agentchange",
+                    "domain": "retail",
+                    "method": "adagentflow_rt",
+                    "TSR": 0.7,
+                    "TUE": 5,
+                    "TCRR": 0.6,
+                    "GSRT": 12.0,
+                    "recovery_success_rate": 0.75,
+                    "mean_time_to_recover_ms": 900,
+                },
+                {
+                    "benchmark": "tau3",
+                    "domain": "airline",
+                    "method": "retry_only",
+                    "ablation": None,
+                    "task_success_rate": 0.75,
+                    "dead_letter_rate": 0.1,
+                    "recovery_success_rate": 0.4,
+                    "silent_failure_rate": 0.0,
+                    "mean_time_to_recover_ms": 0,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    table_dir = tmp_path / "tables"
+    fig_dir = tmp_path / "figs"
+    plot_dir = tmp_path / "plots"
+
+    written = refresh_paper_artifacts(
+        summary_paths=[str(summary_path)],
+        table_dir=table_dir,
+        fig_dir=fig_dir,
+        plot_dir=plot_dir,
+    )
+
+    assert table_dir.joinpath("main_tau3_results.csv").exists()
+    assert table_dir.joinpath("runtime_stability_metrics.csv").exists()
+    assert table_dir.joinpath("agentchange_recovery_metrics.csv").exists()
+    assert table_dir.joinpath("failure_recovery_breakdown.csv").exists()
+    assert table_dir.joinpath("ablation_table.csv").exists()
+    assert fig_dir.joinpath("success_vs_concurrency.pdf").exists()
+    assert plot_dir.joinpath("recovery_vs_fault_rate.csv").exists()
+    assert "agentchange" in table_dir.joinpath("agentchange_recovery_metrics.csv").read_text(encoding="utf-8")
+    assert "retry_only" in table_dir.joinpath("ablation_table.csv").read_text(encoding="utf-8")
+    assert table_dir.joinpath("main_tau3_results.csv") in written
 
 
 def test_suite_plan_expands_protocol_matrix(tmp_path):

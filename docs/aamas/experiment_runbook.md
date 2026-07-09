@@ -146,12 +146,12 @@ Each run should produce JSONL rows with:
 - `trajectory_path`
 - `runtime_trace_path`
 
-Aggregation produces JSON and CSV summaries. Plotting writes placeholder PDFs until main experiment results are available.
+Aggregation produces JSON and CSV summaries. Plotting writes data-backed PDFs and CSVs from those summaries.
 
-Export paper tables from one or more summaries:
+Refresh all paper-facing tables and figures from one or more summaries:
 
 ```bash
-.venv/bin/python -m experiments.harness.export_paper_tables \
+.venv/bin/python -m experiments.harness.refresh_paper_artifacts \
   --summary experiments/results/smoke/tau3_airline_stress_medium_summary.json \
   --summary experiments/results/ablation/full_schema_drift_summary.json \
   --summary experiments/results/ablation/without_contract_monitor_summary.json
@@ -163,3 +163,10 @@ This writes:
 - `paper/aamas2026/tables/runtime_stability_metrics.csv`
 - `paper/aamas2026/tables/agentchange_recovery_metrics.csv`
 - `paper/aamas2026/tables/failure_recovery_breakdown.csv`
+- `paper/aamas2026/tables/ablation_table.csv`
+- `paper/aamas2026/figs/*.pdf`
+- `paper/aamas2026/figs/*.csv`
+- `experiments/results/plots/*.pdf`
+- `experiments/results/plots/*.csv`
+
+The lower-level `export_paper_tables` and `plot_results` commands remain available when only one artifact family needs to be regenerated.
