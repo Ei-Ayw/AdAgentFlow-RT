@@ -12,22 +12,22 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 5 0 obj
-<< /Length 1513 >>
+<< /Length 1537 >>
 stream
 BT /F1 9 Tf 48 740 Td (Figure 7: AgentChangeBench GSRT and TCRR comparison) Tj ET
 BT /F1 9 Tf 48 722 Td (benchmark=agentchange, domain=airline, method=adagentflow_rt, metric=GSRT, value=2.0) Tj ET
-BT /F1 9 Tf 48 704 Td (benchmark=agentchange, domain=airline, method=adagentflow_rt, metric=TCRR, value=1.0) Tj ET
+BT /F1 9 Tf 48 704 Td (benchmark=agentchange, domain=airline, method=adagentflow_rt, metric=TCRR, value=0.0) Tj ET
 BT /F1 9 Tf 48 686 Td (benchmark=agentchange, domain=airline, method=adagentflow_rt, metric=recovery_success_rate, ) Tj ET
-BT /F1 9 Tf 48 668 Td (benchmark=agentchange, domain=airline, method=retry_only, metric=GSRT, value=2.0) Tj ET
-BT /F1 9 Tf 48 650 Td (benchmark=agentchange, domain=airline, method=retry_only, metric=TCRR, value=1.0) Tj ET
+BT /F1 9 Tf 48 668 Td (benchmark=agentchange, domain=airline, method=retry_only, metric=GSRT, value=5.0) Tj ET
+BT /F1 9 Tf 48 650 Td (benchmark=agentchange, domain=airline, method=retry_only, metric=TCRR, value=0.0) Tj ET
 BT /F1 9 Tf 48 632 Td (benchmark=agentchange, domain=airline, method=retry_only, metric=recovery_success_rate, valu) Tj ET
-BT /F1 9 Tf 48 614 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=GSRT, value=2.0) Tj ET
-BT /F1 9 Tf 48 596 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=TCRR, value=1.0) Tj ET
+BT /F1 9 Tf 48 614 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=GSRT, value=4.833333333333) Tj ET
+BT /F1 9 Tf 48 596 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=TCRR, value=0.0) Tj ET
 BT /F1 9 Tf 48 578 Td (benchmark=agentchange, domain=airline, method=schema_only, metric=recovery_success_rate, val) Tj ET
-BT /F1 9 Tf 48 560 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=GSRT, value=2.0) Tj ET
-BT /F1 9 Tf 48 542 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=TCRR, value=1.0) Tj ET
+BT /F1 9 Tf 48 560 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=GSRT, value=6.166666666666667) Tj ET
+BT /F1 9 Tf 48 542 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=TCRR, value=0.0) Tj ET
 BT /F1 9 Tf 48 524 Td (benchmark=agentchange, domain=airline, method=vanilla, metric=recovery_success_rate, value=0) Tj ET
-BT /F1 9 Tf 48 506 Td (... 180 more rows) Tj ET
+BT /F1 9 Tf 48 506 Td (... 84 more rows) Tj ET
 endstream
 endobj
 xref
@@ -41,5 +41,5 @@ xref
 trailer
 << /Root 1 0 R /Size 6 >>
 startxref
-1876
+1900
 %%EOF

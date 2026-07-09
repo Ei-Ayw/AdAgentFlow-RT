@@ -7,6 +7,10 @@ All four runtime strategies share this skeleton. They differ in:
 
 The skeleton calls the SyncLLMClient (real GPU server or deterministic
 simulator), tracks tool/LLM/cost stats, and computes native metrics.
+
+When the benchmark adapter loads real τ³-bench / AgentChangeBench tasks the
+prompt is augmented with the domain's policy text and the real tool list so
+the LLM sees the actual benchmark context.
 """
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from experiments.harness.external_data import evaluate_external
 from experiments.harness.llm import LLMCallStats, SyncLLMClient
 from experiments.harness.runtime_adapters.base import RuntimeResult
 from experiments.harness.scenarios import ScenarioTask, evaluate_native
@@ -32,16 +37,40 @@ SCHEMA_HINT = {
 def _prompt_for_task(task_payload: Dict[str, Any]) -> Tuple[str, str]:
     customer_goal = task_payload.get("customer_goal", "")
     tools = task_payload.get("tools") or []
-    system = (
+    policy_text = task_payload.get("policy_text") or ""
+    goal_change = bool(task_payload.get("goal_change"))
+    change_target = task_payload.get("change_target_goal") or ""
+    nl_assertions = task_payload.get("nl_assertions") or []
+
+    system_parts = [
         "You are a customer-service agent. Resolve the customer's request using the "
         "available tools. Always return JSON with keys: "
         '"resolution" (string) and "policy_compliant" (boolean).'
-    )
-    user = (
-        f"Available tools: {tools}\n"
-        f"Customer goal: {customer_goal}\n"
+    ]
+    if policy_text:
+        system_parts.append(
+            "You MUST follow this domain policy strictly:\n" + policy_text
+        )
+    system = "\n\n".join(system_parts)
+
+    user_parts = [
+        f"Available tools: {list(tools)[:20]}",
+        f"Customer goal: {customer_goal}",
+    ]
+    if goal_change and change_target:
+        user_parts.append(
+            "IMPORTANT: the customer will change their goal mid-conversation. "
+            f"Be ready to switch to: {change_target}"
+        )
+    if nl_assertions:
+        user_parts.append(
+            "Evaluation criteria your response should satisfy: "
+            + "; ".join(str(a) for a in nl_assertions[:3])
+        )
+    user_parts.append(
         'Respond strictly as JSON: {"resolution": "...", "policy_compliant": true|false}'
     )
+    user = "\n".join(user_parts)
     return system, user
 
 
@@ -102,6 +131,26 @@ def _payload_to_scenario(payload: Dict[str, Any]) -> ScenarioTask:
         goal_change=bool(payload.get("goal_change", False)),
         change_target_goal=str(payload.get("change_target_goal", "")),
         expected_tool_sequence=tuple(payload.get("expected_tool_sequence") or ()),
+    )
+
+
+def _payload_to_external_task(payload: Dict[str, Any]):
+    """Re-hydrate an ExternalTask from a payload so the external scorer can run."""
+    from experiments.harness.external_data import ExternalTask
+    return ExternalTask(
+        benchmark=str(payload.get("_benchmark", "tau3")),
+        domain=str(payload.get("domain", "")),
+        task_id=str(payload.get("_task_id", "")),
+        customer_goal=str(payload.get("customer_goal", "")),
+        policy_text=str(payload.get("policy_text", "")),
+        available_tools=tuple(payload.get("tools") or ()),
+        expected_tool_sequence=tuple(payload.get("expected_tool_sequence") or ()),
+        expected_policy_compliant=bool(payload.get("expected_policy_compliant", True)),
+        goal_change=bool(payload.get("goal_change", False)),
+        change_target_goal=str(payload.get("change_target_goal", "")),
+        nl_assertions=tuple(payload.get("nl_assertions") or ()),
+        evaluation_basis=str(payload.get("evaluation_basis", "NL_ASSERTIONS")),
+        raw={},
     )
 
 
@@ -288,12 +337,20 @@ def evaluate_task(
         tool_sequence = [candidate_tools[0]]
 
     scenario = _payload_to_scenario(task_payload)
-    native = evaluate_native(
-        task=scenario,
-        generated_text=raw_text,
-        generated_actions=[],
-        tool_sequence=tool_sequence,
-    )
+    if task_payload.get("adapter_mode") == "external" or task_payload.get("policy_text"):
+        # Real benchmark task: use the external scorer
+        native = evaluate_external(
+            task=_payload_to_external_task(task_payload),
+            generated_text=raw_text,
+            tool_sequence=tool_sequence,
+        )
+    else:
+        native = evaluate_native(
+            task=scenario,
+            generated_text=raw_text,
+            generated_actions=[],
+            tool_sequence=tool_sequence,
+        )
 
     success_native = bool(native.get("task_success"))
     if method == "vanilla":

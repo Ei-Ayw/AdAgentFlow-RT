@@ -49,3 +49,18 @@ logs/*.log
 # Local run reports
 reports/load_test_report.md
 reports/metrics.json
+
+# Symlinks to large external dataset checkouts (the symlinks themselves
+# are tracked in supplementary/, but the checkouts themselves are not vendored)
+data/external/tau2-bench/
+data/external/AgentChangeBench/
+
+# Bulk raw result dirs (only real_full/ is tracked for paper claims)
+experiments/results/main/compressed_mock/
+experiments/results/main/compressed_plan/
+experiments/results/main/real/
+experiments/results/main/smoke_all_plan/
+experiments/results/main/agentchange_supplement_plan/
+experiments/results/smoke/
+experiments/results/ablation/
+experiments/results/plots/
