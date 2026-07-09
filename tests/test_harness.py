@@ -11,6 +11,7 @@ from experiments.harness.benchmark_adapters.tau3_adapter import Tau3BenchmarkAda
 from experiments.harness.config import config_methods, config_stressors, load_simple_config
 from experiments.harness.export_paper_tables import load_summaries, write_failure_breakdown, write_table
 from experiments.harness.import_external_results import import_external_results
+from experiments.harness.aggregate_results import main as aggregate_results_main
 from experiments.harness.aggregate_suite import main as aggregate_suite_main
 from experiments.harness.metrics.runtime_metrics import compute_runtime_metrics
 from experiments.harness.metrics.trace_metrics import compute_trace_metrics
@@ -249,6 +250,42 @@ def test_import_external_results_jsonl_feeds_existing_aggregator(tmp_path):
     assert metrics["task_success_rate"] == 0.5
 
 
+def test_aggregate_results_preserves_matrix_dimensions(tmp_path, monkeypatch):
+    input_path = tmp_path / "matrix.jsonl"
+    output = tmp_path / "summary.json"
+    csv_output = tmp_path / "summary.csv"
+    input_path.write_text(
+        '{"benchmark":"tau3","domain":"airline","task_id":"t1","trial_id":0,'
+        '"method":"adagentflow_rt","run_id":"r1","success":true,'
+        '"suite_run":"main_compressed","fault_rate":0.2,"max_concurrency":10,'
+        '"stress":"schema_drift","native_metrics":{"task_success":true},'
+        '"runtime_metrics":{},"events":[],"latency_ms":1000,"tool_calls":2,'
+        '"llm_calls":1,"attempts":1,"injected_faults":[],"recovered":false,'
+        '"dead_letter":false}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "aggregate_results",
+            "--input",
+            str(input_path),
+            "--json-output",
+            str(output),
+            "--csv-output",
+            str(csv_output),
+        ],
+    )
+
+    aggregate_results_main()
+
+    [row] = json.loads(output.read_text(encoding="utf-8"))
+    assert row["suite_run"] == "main_compressed"
+    assert row["fault_rate"] == 0.2
+    assert row["max_concurrency"] == 10
+    assert row["stress"] == "schema_drift"
+
+
 def test_export_paper_tables_writes_runtime_csvs(tmp_path):
     summary_path = tmp_path / "summary.json"
     summary_path.write_text(
@@ -361,3 +398,41 @@ def test_aggregate_suite_summarizes_jsonl_directory(tmp_path, monkeypatch):
     aggregate_suite_main()
 
     assert '"total_tasks": 1' in output.read_text(encoding="utf-8")
+
+
+def test_aggregate_suite_groups_mixed_method_jsonl(tmp_path, monkeypatch):
+    suite_dir = tmp_path / "suite"
+    suite_dir.mkdir()
+    (suite_dir / "mixed.jsonl").write_text(
+        '{"benchmark":"tau3","domain":"airline","task_id":"t1","trial_id":0,'
+        '"method":"vanilla","run_id":"r1","success":true,'
+        '"fault_rate":0.2,"max_concurrency":20,'
+        '"native_metrics":{"task_success":true},"runtime_metrics":{},'
+        '"events":[],"latency_ms":1000,"tool_calls":2,"llm_calls":1,'
+        '"attempts":1,"injected_faults":[],"recovered":false,"dead_letter":false}\n'
+        '{"benchmark":"tau3","domain":"airline","task_id":"t1","trial_id":0,'
+        '"method":"adagentflow_rt","run_id":"r2","success":true,'
+        '"fault_rate":0.2,"max_concurrency":20,'
+        '"native_metrics":{"task_success":true},"runtime_metrics":{},'
+        '"events":[],"latency_ms":1200,"tool_calls":2,"llm_calls":1,'
+        '"attempts":1,"injected_faults":[],"recovered":false,"dead_letter":false}\n',
+        encoding="utf-8",
+    )
+    output = tmp_path / "summary.json"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "aggregate_suite",
+            "--suite-dir",
+            str(suite_dir),
+            "--json-output",
+            str(output),
+        ],
+    )
+
+    aggregate_suite_main()
+
+    rows = json.loads(output.read_text(encoding="utf-8"))
+    assert {row["method"] for row in rows} == {"vanilla", "adagentflow_rt"}
+    assert {row["max_concurrency"] for row in rows} == {20}
+    assert {row["fault_rate"] for row in rows} == {0.2}

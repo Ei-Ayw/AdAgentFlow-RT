@@ -16,6 +16,10 @@ class RuntimeResult:
     method: str
     run_id: str
     success: bool
+    suite_run: Optional[str] = None
+    fault_rate: Optional[float] = None
+    max_concurrency: Optional[int] = None
+    stress: Optional[str] = None
     ablation: Optional[str] = None
     benchmark_adapter_mode: str = "mock"
     external_command: List[str] = field(default_factory=list)

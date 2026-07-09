@@ -72,6 +72,8 @@ For smoke suites, aggregate all JSONL outputs in one directory:
   --json-output experiments/results/smoke/suite_smoke_all/summary.json
 ```
 
+Matrix and suite aggregation preserve `suite_run`, `max_concurrency`, `fault_rate`, and the concrete stressor list in `stress`. These fields drive the success-vs-concurrency, latency-vs-concurrency, and recovery-vs-fault-rate figures.
+
 Available suite configs:
 
 - `suite_smoke_all.yaml`

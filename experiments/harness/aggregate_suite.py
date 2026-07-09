@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import defaultdict
 from pathlib import Path
 
 from experiments.harness.aggregate_results import load_results
@@ -21,13 +22,48 @@ def main() -> None:
         results = load_results(path)
         if not results:
             continue
-        summaries.append(
-            {
-                "source": str(path),
-                **compute_benchmark_metrics(results),
-                **compute_runtime_metrics(results),
-            }
-        )
+        grouped = defaultdict(list)
+        for result in results:
+            grouped[
+                (
+                    result.benchmark,
+                    result.domain,
+                    result.method,
+                    result.ablation,
+                    result.benchmark_adapter_mode,
+                    result.suite_run,
+                    result.fault_rate,
+                    result.max_concurrency,
+                    result.stress,
+                )
+            ].append(result)
+        for (
+            benchmark,
+            domain,
+            method,
+            ablation,
+            adapter_mode,
+            suite_run,
+            fault_rate,
+            max_concurrency,
+            stress,
+        ), rows in sorted(grouped.items(), key=lambda item: str(item[0])):
+            summaries.append(
+                {
+                    "source": str(path),
+                    "benchmark": benchmark,
+                    "domain": domain,
+                    "method": method,
+                    "ablation": ablation,
+                    "benchmark_adapter_mode": adapter_mode,
+                    "suite_run": suite_run,
+                    "fault_rate": fault_rate,
+                    "max_concurrency": max_concurrency,
+                    "stress": stress,
+                    **compute_benchmark_metrics(rows),
+                    **compute_runtime_metrics(rows),
+                }
+            )
     output = Path(args.json_output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(summaries, indent=2, ensure_ascii=False), encoding="utf-8")

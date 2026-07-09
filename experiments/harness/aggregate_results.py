@@ -23,10 +23,32 @@ def main() -> None:
     results = load_results(Path(args.input))
     grouped = defaultdict(list)
     for result in results:
-        grouped[(result.benchmark, result.domain, result.method, result.ablation, result.benchmark_adapter_mode)].append(result)
+        grouped[
+            (
+                result.benchmark,
+                result.domain,
+                result.method,
+                result.ablation,
+                result.benchmark_adapter_mode,
+                result.suite_run,
+                result.fault_rate,
+                result.max_concurrency,
+                result.stress,
+            )
+        ].append(result)
 
     summaries = []
-    for (benchmark, domain, method, ablation, adapter_mode), rows in sorted(grouped.items(), key=lambda item: str(item[0])):
+    for (
+        benchmark,
+        domain,
+        method,
+        ablation,
+        adapter_mode,
+        suite_run,
+        fault_rate,
+        max_concurrency,
+        stress,
+    ), rows in sorted(grouped.items(), key=lambda item: str(item[0])):
         summaries.append(
             {
                 "benchmark": benchmark,
@@ -34,6 +56,10 @@ def main() -> None:
                 "method": method,
                 "ablation": ablation,
                 "benchmark_adapter_mode": adapter_mode,
+                "suite_run": suite_run,
+                "fault_rate": fault_rate,
+                "max_concurrency": max_concurrency,
+                "stress": stress,
                 **compute_benchmark_metrics(rows),
                 **compute_runtime_metrics(rows),
             }

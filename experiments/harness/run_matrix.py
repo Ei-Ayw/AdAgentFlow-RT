@@ -36,7 +36,8 @@ def run_config(config: Dict[str, Any], *, output_path: Path, append: bool = Fals
         raise KeyError(f"unknown benchmark: {benchmark_name}")
     benchmark = BENCHMARKS[benchmark_name]()
     tasks = list(benchmark.load_tasks(config))
-    stressors = build_stressors(",".join(config_stressors(config)), float(config.get("fault_rate", 0.0) or 0.0))
+    stress_names = config_stressors(config)
+    stressors = build_stressors(",".join(stress_names), float(config.get("fault_rate", 0.0) or 0.0))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     mode = "a" if append else "w"
@@ -62,6 +63,7 @@ def run_config(config: Dict[str, Any], *, output_path: Path, append: bool = Fals
                 row["suite_run"] = config.get("suite_run")
                 row["fault_rate"] = config.get("fault_rate", 0.0)
                 row["max_concurrency"] = config.get("max_concurrency", 1)
+                row["stress"] = ",".join(stress_names)
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
                 written.append(row)
     return written
