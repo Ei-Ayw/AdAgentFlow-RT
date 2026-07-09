@@ -17,8 +17,15 @@ def main() -> None:
     parser.add_argument("--json-output", required=True)
     args = parser.parse_args()
 
+    summaries = summarize_suite(Path(args.suite_dir))
+    output = Path(args.json_output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(summaries, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def summarize_suite(suite_dir: Path):
     summaries = []
-    for path in sorted(Path(args.suite_dir).glob("*.jsonl")):
+    for path in sorted(suite_dir.glob("*.jsonl")):
         results = load_results(path)
         if not results:
             continue
@@ -64,9 +71,7 @@ def main() -> None:
                     **compute_runtime_metrics(rows),
                 }
             )
-    output = Path(args.json_output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(summaries, indent=2, ensure_ascii=False), encoding="utf-8")
+    return summaries
 
 
 if __name__ == "__main__":

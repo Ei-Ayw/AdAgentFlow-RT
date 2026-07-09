@@ -81,6 +81,15 @@ For smoke suites, aggregate all JSONL outputs in one directory:
   --json-output experiments/results/smoke/suite_smoke_all/summary.json
 ```
 
+Finalize a completed suite into summaries and paper-facing artifacts:
+
+```bash
+.venv/bin/python -m experiments.harness.finalize_suite \
+  --suite-dir experiments/results/main/compressed \
+  --summary-json experiments/results/main/compressed/summary.json \
+  --summary-csv experiments/results/main/compressed/summary.csv
+```
+
 Matrix and suite aggregation preserve `suite_run`, `max_concurrency`, `fault_rate`, and the concrete stressor list in `stress`. These fields drive the success-vs-concurrency, latency-vs-concurrency, and recovery-vs-fault-rate figures.
 
 Available suite configs:

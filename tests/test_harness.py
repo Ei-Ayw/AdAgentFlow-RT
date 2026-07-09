@@ -10,6 +10,7 @@ from experiments.harness.benchmark_adapters.agentchange_adapter import AgentChan
 from experiments.harness.benchmark_adapters.tau3_adapter import Tau3BenchmarkAdapter
 from experiments.harness.config import config_methods, config_stressors, load_simple_config
 from experiments.harness.export_paper_tables import load_summaries, write_failure_breakdown, write_table
+from experiments.harness.finalize_suite import finalize_suite
 from experiments.harness.import_external_results import import_external_results
 from experiments.harness.aggregate_results import main as aggregate_results_main
 from experiments.harness.aggregate_suite import main as aggregate_suite_main
@@ -600,3 +601,38 @@ def test_aggregate_suite_groups_mixed_method_jsonl(tmp_path, monkeypatch):
     assert {row["method"] for row in rows} == {"vanilla", "adagentflow_rt"}
     assert {row["max_concurrency"] for row in rows} == {20}
     assert {row["fault_rate"] for row in rows} == {0.2}
+
+
+def test_finalize_suite_writes_summary_and_paper_artifacts(tmp_path):
+    suite_dir = tmp_path / "suite"
+    suite_dir.mkdir()
+    (suite_dir / "run.jsonl").write_text(
+        '{"benchmark":"tau3","domain":"airline","task_id":"t1","trial_id":0,'
+        '"method":"adagentflow_rt","run_id":"r1","success":true,'
+        '"suite_run":"smoke","fault_rate":0.2,"max_concurrency":10,'
+        '"native_metrics":{"task_success":true},"runtime_metrics":{},'
+        '"events":[],"latency_ms":1000,"tool_calls":2,"llm_calls":1,'
+        '"attempts":1,"injected_faults":[],"recovered":false,"dead_letter":false}\n',
+        encoding="utf-8",
+    )
+    summary_json = tmp_path / "summary.json"
+    summary_csv = tmp_path / "summary.csv"
+    table_dir = tmp_path / "tables"
+    fig_dir = tmp_path / "figs"
+    plot_dir = tmp_path / "plots"
+
+    report = finalize_suite(
+        suite_dir=suite_dir,
+        summary_json=summary_json,
+        summary_csv=summary_csv,
+        table_dir=table_dir,
+        fig_dir=fig_dir,
+        plot_dir=plot_dir,
+    )
+
+    assert report["summary_rows"] == 1
+    assert summary_json.exists()
+    assert summary_csv.exists()
+    assert table_dir.joinpath("main_tau3_results.csv").exists()
+    assert fig_dir.joinpath("success_vs_concurrency.pdf").exists()
+    assert plot_dir.joinpath("success_vs_concurrency.csv").exists()
