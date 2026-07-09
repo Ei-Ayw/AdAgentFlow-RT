@@ -1,0 +1,200 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 32px 16px;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 32px;
+    color: #f1f5f9;
+}
+
+.header h1 {
+    font-size: 32px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.subtitle {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.container {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+}
+
+.card {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.card h2 {
+    color: #93c5fd;
+    font-size: 18px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding-bottom: 8px;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.metric {
+    background: rgba(15, 23, 42, 0.6);
+    border-left: 3px solid #60a5fa;
+    padding: 12px 16px;
+    border-radius: 8px;
+}
+
+.metric .label {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+.metric .value {
+    color: #f8fafc;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.metric.success { border-left-color: #22c55e; }
+.metric.failed { border-left-color: #ef4444; }
+.metric.warning { border-left-color: #f59e0b; }
+.metric.info { border-left-color: #8b5cf6; }
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.data-table th, .data-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.data-table th {
+    color: #93c5fd;
+    font-weight: 500;
+    background: rgba(15, 23, 42, 0.4);
+}
+
+.data-table tbody tr:hover {
+    background: rgba(96, 165, 250, 0.05);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.success { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+.status-badge.failed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.status-badge.running { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.status-badge.queued { background: rgba(168, 85, 247, 0.2); color: #a78bfa; }
+.status-badge.retrying { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+.status-badge.dead_letter { background: rgba(220, 38, 38, 0.4); color: #fca5a5; }
+.status-badge.manual_review { background: rgba(234, 179, 8, 0.2); color: #facc15; }
+.status-badge.evaluating { background: rgba(14, 165, 233, 0.2); color: #38bdf8; }
+
+.submit-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.submit-form label {
+    display: flex;
+    flex-direction: column;
+    color: #cbd5e1;
+    font-size: 13px;
+    gap: 4px;
+}
+
+.submit-form input,
+.submit-form select {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: #e2e8f0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.submit-form button {
+    grid-column: span 2;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.submit-form button:hover {
+    transform: translateY(-1px);
+}
+
+.submit-result {
+    grid-column: span 2;
+    padding: 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    display: none;
+}
+
+.submit-result.success { background: rgba(34, 197, 94, 0.2); color: #4ade80; display: block; }
+.submit-result.error { background: rgba(239, 68, 68, 0.2); color: #f87171; display: block; }
+
+.action-btn {
+    background: rgba(96, 165, 250, 0.2);
+    color: #93c5fd;
+    border: 1px solid rgba(96, 165, 250, 0.4);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.action-btn:hover {
+    background: rgba(96, 165, 250, 0.4);
+}
+
+.footer {
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    padding: 16px;
+}
