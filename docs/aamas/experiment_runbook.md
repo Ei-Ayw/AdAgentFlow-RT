@@ -56,6 +56,7 @@ Full experiment suites are dry-run planned by default. This is the safe way to i
 ```
 
 The command writes `suite_manifest.json` with one JSONL output target per planned run. Add `--execute` only after smoke validation and external benchmark setup:
+The manifest includes provenance fields such as git commit, branch, dirty-state flag, Python version, platform, and source config path.
 
 Validate the suite before execution:
 
@@ -87,8 +88,11 @@ Finalize a completed suite into summaries and paper-facing artifacts:
 .venv/bin/python -m experiments.harness.finalize_suite \
   --suite-dir experiments/results/main/compressed \
   --summary-json experiments/results/main/compressed/summary.json \
-  --summary-csv experiments/results/main/compressed/summary.csv
+  --summary-csv experiments/results/main/compressed/summary.csv \
+  --report-json experiments/results/main/compressed/finalize_report.json
 ```
+
+The finalize report records summary locations, generated paper artifacts, and provenance for result auditing.
 
 Matrix and suite aggregation preserve `suite_run`, `max_concurrency`, `fault_rate`, and the concrete stressor list in `stress`. These fields drive the success-vs-concurrency, latency-vs-concurrency, and recovery-vs-fault-rate figures.
 

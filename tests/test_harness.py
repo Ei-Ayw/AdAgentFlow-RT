@@ -458,11 +458,13 @@ def test_refresh_paper_artifacts_writes_tables_and_figures(tmp_path):
 
 def test_suite_plan_expands_protocol_matrix(tmp_path):
     suite = load_simple_config("experiments/harness/configs/suite_ablation_schema_drift.yaml")
-    plan = build_suite_plan(suite, output_dir=tmp_path)
+    plan = build_suite_plan(suite, output_dir=tmp_path, config_path="experiments/harness/configs/suite_ablation_schema_drift.yaml")
 
     assert plan["suite_name"] == "ablation_schema_drift"
     assert plan["run_count"] == 5
     assert plan["execute_by_default"] is False
+    assert plan["provenance"]["config_path"] == "experiments/harness/configs/suite_ablation_schema_drift.yaml"
+    assert plan["provenance"]["python_version"]
     labels = {item["label"] for item in plan["runs"]}
     assert any("without_contract_monitor" in label for label in labels)
     assert all(item["output"].endswith(".jsonl") for item in plan["runs"])
@@ -636,3 +638,46 @@ def test_finalize_suite_writes_summary_and_paper_artifacts(tmp_path):
     assert table_dir.joinpath("main_tau3_results.csv").exists()
     assert fig_dir.joinpath("success_vs_concurrency.pdf").exists()
     assert plot_dir.joinpath("success_vs_concurrency.csv").exists()
+    assert report["provenance"]["python_version"]
+
+
+def test_finalize_suite_cli_writes_report_json(tmp_path, monkeypatch):
+    suite_dir = tmp_path / "suite"
+    suite_dir.mkdir()
+    (suite_dir / "run.jsonl").write_text(
+        '{"benchmark":"tau3","domain":"airline","task_id":"t1","trial_id":0,'
+        '"method":"vanilla","run_id":"r1","success":true,'
+        '"native_metrics":{"task_success":true},"runtime_metrics":{},'
+        '"events":[],"latency_ms":1000,"tool_calls":2,"llm_calls":1,'
+        '"attempts":1,"injected_faults":[],"recovered":false,"dead_letter":false}\n',
+        encoding="utf-8",
+    )
+    report_json = tmp_path / "report.json"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "finalize_suite",
+            "--suite-dir",
+            str(suite_dir),
+            "--summary-json",
+            str(tmp_path / "summary.json"),
+            "--summary-csv",
+            str(tmp_path / "summary.csv"),
+            "--report-json",
+            str(report_json),
+            "--table-dir",
+            str(tmp_path / "tables"),
+            "--fig-dir",
+            str(tmp_path / "figs"),
+            "--plot-dir",
+            str(tmp_path / "plots"),
+        ],
+    )
+
+    from experiments.harness.finalize_suite import main as finalize_suite_main
+
+    finalize_suite_main()
+
+    report = json.loads(report_json.read_text(encoding="utf-8"))
+    assert report["summary_rows"] == 1
+    assert report["provenance"]["python_version"]

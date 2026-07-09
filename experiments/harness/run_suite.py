@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from experiments.harness.config import config_list, load_simple_config
+from experiments.harness.provenance import collect_provenance
 from experiments.harness.run_matrix import run_config
 
 
@@ -20,7 +21,7 @@ def main() -> None:
     suite = load_simple_config(args.suite_config)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    plan = build_suite_plan(suite, output_dir=output_dir)
+    plan = build_suite_plan(suite, output_dir=output_dir, config_path=args.suite_config)
     manifest_path = output_dir / "suite_manifest.json"
     manifest_path.write_text(json.dumps(plan, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -29,7 +30,7 @@ def main() -> None:
             run_config(item["config"], output_path=Path(item["output"]), append=False)
 
 
-def build_suite_plan(suite: Dict[str, Any], *, output_dir: Path) -> Dict[str, Any]:
+def build_suite_plan(suite: Dict[str, Any], *, output_dir: Path, config_path: str | None = None) -> Dict[str, Any]:
     runs: List[Dict[str, Any]] = []
     suite_name = str(suite.get("suite_name", "suite"))
     benchmarks = config_list(suite, "benchmarks", ["tau3"])
@@ -88,6 +89,7 @@ def build_suite_plan(suite: Dict[str, Any], *, output_dir: Path) -> Dict[str, An
         "suite_name": suite_name,
         "run_count": len(runs),
         "execute_by_default": False,
+        "provenance": collect_provenance(config_path=config_path),
         "runs": runs,
     }
 

@@ -16,6 +16,7 @@ def main() -> None:
     parser.add_argument("--suite-dir", required=True)
     parser.add_argument("--summary-json", required=True)
     parser.add_argument("--summary-csv", default=None)
+    parser.add_argument("--report-json", default=None)
     parser.add_argument("--table-dir", default="paper/aamas2026/tables")
     parser.add_argument("--fig-dir", default="paper/aamas2026/figs")
     parser.add_argument("--plot-dir", default="experiments/results/plots")
@@ -23,7 +24,7 @@ def main() -> None:
 
     summary_json = Path(args.summary_json)
     summary_csv = Path(args.summary_csv) if args.summary_csv else summary_json.with_suffix(".csv")
-    finalize_suite(
+    report = finalize_suite(
         suite_dir=Path(args.suite_dir),
         summary_json=summary_json,
         summary_csv=summary_csv,
@@ -31,6 +32,10 @@ def main() -> None:
         fig_dir=Path(args.fig_dir),
         plot_dir=Path(args.plot_dir),
     )
+    if args.report_json:
+        report_path = Path(args.report_json)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def finalize_suite(
@@ -58,6 +63,7 @@ def finalize_suite(
         "summary_csv": str(summary_csv),
         "summary_rows": len(summaries),
         "paper_artifacts": [str(path) for path in written],
+        "provenance": _finalize_provenance(),
     }
 
 
@@ -71,6 +77,12 @@ def write_summary_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
             writer.writerows(rows)
         else:
             writer.writerow({"note": "no result rows"})
+
+
+def _finalize_provenance() -> Dict[str, Any]:
+    from experiments.harness.provenance import collect_provenance
+
+    return collect_provenance()
 
 
 if __name__ == "__main__":
