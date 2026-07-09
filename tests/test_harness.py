@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+import subprocess
+import sys
+
 from experiments.harness.benchmark_adapters.base import MockBenchmarkAdapter
 from experiments.harness.benchmark_adapters.agentchange_adapter import AgentChangeBenchmarkAdapter
 from experiments.harness.benchmark_adapters.tau3_adapter import Tau3BenchmarkAdapter
@@ -95,6 +100,51 @@ def test_tau3_external_adapter_builds_command_plan(tmp_path):
     assert tasks[0].external_command[:3] == ["uv", "run", "tau2"]
     assert "--domain" in tasks[0].external_command
     assert "gpt-test-agent" in tasks[0].external_command
+
+
+def test_run_experiment_cli_accepts_external_benchmark_fields(tmp_path):
+    repo = tmp_path / "tau2-bench"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text("[project]\nname = 'tau2-bench'\n", encoding="utf-8")
+    output = tmp_path / "planned.jsonl"
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "experiments.harness.run_experiment",
+            "--benchmark",
+            "tau3",
+            "--domain",
+            "airline",
+            "--num-tasks",
+            "1",
+            "--num-trials",
+            "1",
+            "--methods",
+            "vanilla",
+            "--benchmark-repo-path",
+            str(repo),
+            "--benchmark-command",
+            "uv run tau2",
+            "--agent-llm",
+            "gpt-test-agent",
+            "--user-llm",
+            "gpt-test-user",
+            "--task-ids",
+            "task_a",
+            "--output",
+            str(output),
+        ],
+        check=True,
+        cwd=str(Path(__file__).resolve().parents[1]),
+    )
+
+    [row] = [json.loads(line) for line in output.read_text(encoding="utf-8").splitlines()]
+    assert row["benchmark_adapter_mode"] == "external"
+    assert row["task_id"] == "task_a"
+    assert row["external_command"][:3] == ["uv", "run", "tau2"]
+    assert "gpt-test-agent" in row["external_command"]
 
 
 def test_agentchange_external_adapter_preserves_native_metric_slots(tmp_path):

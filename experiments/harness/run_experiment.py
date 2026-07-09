@@ -58,6 +58,13 @@ def main() -> None:
     parser.add_argument("--stress", default="")
     parser.add_argument("--fault-rate", type=float, default=0.0)
     parser.add_argument("--max-concurrency", type=int, default=1)
+    parser.add_argument("--benchmark-repo-path", default=None)
+    parser.add_argument("--benchmark-command", default=None)
+    parser.add_argument("--execution-mode", default=None, choices=["mock", "external"])
+    parser.add_argument("--agent-llm", default=None)
+    parser.add_argument("--user-llm", default=None)
+    parser.add_argument("--task-ids", default=None)
+    parser.add_argument("--benchmark-output-dir", default=None)
     parser.add_argument("--output", default="experiments/results/smoke/mock_smoke.jsonl")
     args = parser.parse_args()
 
@@ -67,6 +74,16 @@ def main() -> None:
         "num_trials": args.num_trials,
         "max_concurrency": args.max_concurrency,
     }
+    optional_config = {
+        "benchmark_repo_path": args.benchmark_repo_path,
+        "benchmark_command": args.benchmark_command,
+        "execution_mode": args.execution_mode,
+        "agent_llm": args.agent_llm,
+        "user_llm": args.user_llm,
+        "task_ids": args.task_ids,
+        "output_dir": args.benchmark_output_dir,
+    }
+    config.update({key: value for key, value in optional_config.items() if value is not None})
     adapter = BENCHMARKS[args.benchmark]()
     tasks = list(adapter.load_tasks(config))
     stressors = build_stressors(args.stress, args.fault_rate)
