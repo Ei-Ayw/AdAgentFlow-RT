@@ -122,6 +122,19 @@ Available suite configs:
 
 For tau2-bench / tau3-bench and AgentChangeBench, set `benchmark_repo_path` in the config. If the repo path is missing, adapters fail with instructions instead of silently changing benchmark data. If omitted, the adapter uses deterministic mock tasks that preserve the normalized result shape.
 
+Check local readiness before running external suites:
+
+```bash
+.venv/bin/python -m experiments.harness.check_benchmark_env \
+  --tau3-repo /path/to/tau2-or-tau3-bench \
+  --agentchange-repo /path/to/AgentChangeBench \
+  --require-tau3 \
+  --require-agentchange \
+  --json-output experiments/results/main/benchmark_env_report.json
+```
+
+The report records repo presence, `pyproject.toml` detection, `tau2`/`uv` command availability, Python import visibility, and per-benchmark errors. Omit a `--require-*` flag when diagnosing only one benchmark family.
+
 External configs are examples because the public benchmark checkouts are not vendored into this repository:
 
 ```bash

@@ -10,6 +10,7 @@ import pytest
 from experiments.harness.benchmark_adapters.base import MockBenchmarkAdapter
 from experiments.harness.benchmark_adapters.agentchange_adapter import AgentChangeBenchmarkAdapter
 from experiments.harness.benchmark_adapters.tau3_adapter import Tau3BenchmarkAdapter
+from experiments.harness.check_benchmark_env import check_benchmark_env
 from experiments.harness.config import config_methods, config_stressors, load_simple_config
 from experiments.harness.export_paper_tables import load_summaries, write_failure_breakdown, write_table
 from experiments.harness.finalize_suite import finalize_suite
@@ -183,6 +184,56 @@ def test_external_adapter_missing_repo_has_clear_error():
         assert "mock smoke tasks" in str(exc)
     else:
         raise AssertionError("expected missing repo error")
+
+
+def test_check_benchmark_env_reports_ready_tau3_repo(tmp_path):
+    repo = tmp_path / "tau2-bench"
+    repo.mkdir()
+    (repo / "pyproject.toml").write_text("[project]\nname = 'tau2-bench'\n", encoding="utf-8")
+
+    report = check_benchmark_env(
+        tau3_repo=str(repo),
+        benchmark_command=f"{sys.executable} -m tau2",
+        require_tau3=True,
+    )
+
+    assert report["ok"] is True
+    assert report["benchmarks"]["tau3"]["ready"] is True
+    assert report["benchmarks"]["tau3"]["pyproject"] is True
+    assert report["benchmarks"]["tau3"]["command"][0] == sys.executable
+
+
+def test_check_benchmark_env_rejects_required_missing_tau3_repo(tmp_path):
+    missing = tmp_path / "missing_tau2"
+
+    report = check_benchmark_env(tau3_repo=str(missing), require_tau3=True)
+
+    assert report["ok"] is False
+    assert report["benchmarks"]["tau3"]["ready"] is False
+    assert any("benchmark repo does not exist" in error for error in report["errors"])
+
+
+def test_check_benchmark_env_cli_writes_json_and_fails_when_required_missing(tmp_path):
+    output = tmp_path / "env_report.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "experiments.harness.check_benchmark_env",
+            "--tau3-repo",
+            str(tmp_path / "missing_tau2"),
+            "--require-tau3",
+            "--json-output",
+            str(output),
+        ],
+        cwd=str(Path(__file__).resolve().parents[1]),
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["ok"] is False
+    assert payload["benchmarks"]["tau3"]["repo_exists"] is False
 
 
 def test_import_external_results_normalizes_agentchange_json(tmp_path):
