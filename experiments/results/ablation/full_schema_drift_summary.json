@@ -25,9 +25,16 @@
     "extra_tool_calls": 0,
     "extra_llm_calls": 3,
     "cost_per_successful_task": 4.0,
-    "fault_propagation_depth": 0,
-    "contaminated_artifact_count": 0,
-    "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 1500
+    "fault_propagation_depth": 2,
+    "contaminated_artifact_count": 6,
+    "mean_time_to_detect_ms": 950,
+    "mean_time_to_recover_ms": 300,
+    "trace_event_count": 39,
+    "fault_class_counts": {
+      "artifact_fault": 3
+    },
+    "recovery_action_counts": {
+      "quick_repair": 6
+    }
   }
 ]

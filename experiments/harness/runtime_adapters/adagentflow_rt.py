@@ -8,7 +8,7 @@ from app.contracts.registry import ContractRegistry
 from app.runtime.artifact_store import InMemoryArtifactStore
 from app.runtime.event_log import InMemoryEventLog
 from app.runtime.fault_localizer import FaultLocalizer
-from app.runtime.graph import ContractualExecutionGraph, RuntimeNode
+from app.runtime.graph import ContractualExecutionGraph, RuntimeEdge, RuntimeNode
 from app.runtime.monitor import RuntimeMonitor
 from app.runtime.recovery import RecoveryController
 from experiments.harness.runtime_adapters.base import RuntimeAdapter, RuntimeResult
@@ -43,12 +43,34 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
             contract_name="rt.mock_resolution",
             outputs=["resolution_artifact"],
         )
+        verify_node = RuntimeNode(
+            node_id="verify",
+            role="verifier",
+            capability="policy_verification",
+            contract_name="rt.mock_resolution",
+            inputs=["resolution_artifact"],
+            outputs=["verified_resolution_artifact"],
+        )
+        finalize_node = RuntimeNode(
+            node_id="finalize",
+            role="runtime",
+            capability="finalize_response",
+            contract_name="rt.mock_resolution",
+            inputs=["verified_resolution_artifact"],
+        )
         graph = ContractualExecutionGraph(
             graph_id="mock_rt_graph",
-            nodes={node.node_id: node},
-            edges=[],
+            nodes={
+                node.node_id: node,
+                verify_node.node_id: verify_node,
+                finalize_node.node_id: finalize_node,
+            },
+            edges=[
+                RuntimeEdge(source="resolve", target="verify", artifact="resolution_artifact"),
+                RuntimeEdge(source="verify", target="finalize", artifact="verified_resolution_artifact"),
+            ],
             entry_nodes=[node.node_id],
-            terminal_nodes=[node.node_id],
+            terminal_nodes=[finalize_node.node_id],
         )
         store = InMemoryArtifactStore()
         event_log = InMemoryEventLog()
@@ -58,17 +80,52 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
 
         trace_enabled = ablation != "without_event_trace"
         if trace_enabled:
-            event_log.record(run_id=run_id, task_id=task.task_id, event_type="graph.created")
-            event_log.record(run_id=run_id, task_id=task.task_id, event_type="node.started", node_id=node.node_id)
+            event_log.record(
+                run_id=run_id,
+                task_id=task.task_id,
+                event_type="graph.created",
+                payload={"graph_id": graph.graph_id, "node_count": len(graph.nodes), "relative_ms": 0},
+            )
+            event_log.record(
+                run_id=run_id,
+                task_id=task.task_id,
+                event_type="contract.loaded",
+                node_id=node.node_id,
+                payload={"contract_name": node.contract_name, "relative_ms": 5},
+            )
+            event_log.record(
+                run_id=run_id,
+                task_id=task.task_id,
+                event_type="node.started",
+                node_id=node.node_id,
+                payload={"relative_ms": 10},
+            )
         output = {"resolution": "ok", "policy_compliant": True}
         faults = []
         for stressor in stressors:
             event = {"task_id": task.task_id, "method": self.method_name, "phase": "node"}
             if stressor.should_inject(event):
                 faults.append(stressor.apply(output))
+                if trace_enabled:
+                    event_log.record(
+                        run_id=run_id,
+                        task_id=task.task_id,
+                        event_type="fault.injected",
+                        node_id=node.node_id,
+                        status=stressor.name,
+                        payload={"stressor": stressor.name, "relative_ms": 100},
+                    )
 
         violations = []
         if ablation != "without_contract_monitor":
+            if trace_enabled:
+                event_log.record(
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    event_type="contract.checked",
+                    node_id=node.node_id,
+                    payload={"phase": "before_node", "relative_ms": 900},
+                )
             violations = monitor.before_node(task_id=task.task_id, graph=graph, node=node)
             violations.extend(
                 monitor.after_node(
@@ -78,6 +135,14 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
                     observed={"latency_ms": 1000, "llm_calls": 1, "tool_calls": 2, "tokens": 500, "retries": 0},
                 )
             )
+            if trace_enabled:
+                event_log.record(
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    event_type="contract.checked",
+                    node_id=node.node_id,
+                    payload={"phase": "after_node", "relative_ms": 1000},
+                )
         decisions = []
         for violation in violations:
             if trace_enabled:
@@ -87,7 +152,7 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
                     event_type="contract.violated",
                     node_id=node.node_id,
                     status="violation",
-                    payload=violation.__dict__.copy(),
+                    payload={**violation.__dict__.copy(), "relative_ms": 1050},
                 )
             if ablation == "without_fault_localizer":
                 diagnosis = None
@@ -99,7 +164,7 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
                         task_id=task.task_id,
                         event_type="fault.localized",
                         node_id=node.node_id,
-                        payload=diagnosis.__dict__.copy(),
+                        payload={**diagnosis.__dict__.copy(), "relative_ms": 1100},
                     )
             remaining_budget = {"retries": int(runtime_config.get("max_retries", 2))}
             if ablation == "without_bounded_recovery":
@@ -113,6 +178,15 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
                     remaining_budget=remaining_budget,
                 )
             decisions.append(decision)
+            if trace_enabled:
+                event_log.record(
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    event_type="recovery.started",
+                    node_id=node.node_id,
+                    status=decision.action,
+                    payload={"action": decision.action, "relative_ms": 1150},
+                )
             _apply_quick_repair(output, decision.action)
             if trace_enabled:
                 event_log.record(
@@ -120,8 +194,16 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
                     task_id=task.task_id,
                     event_type="recovery.selected",
                     node_id=node.node_id,
-                    payload=decision.__dict__.copy(),
+                    payload={**decision.__dict__.copy(), "relative_ms": 1200},
                     status=decision.action,
+                )
+                event_log.record(
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    event_type="recovery.succeeded" if decision.should_continue else "recovery.failed",
+                    node_id=node.node_id,
+                    status=decision.action,
+                    payload={"action": decision.action, "relative_ms": 1350},
                 )
 
         recovered = bool(violations and all(decision.should_continue for decision in decisions))
@@ -143,15 +225,26 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
                     task_id=task.task_id,
                     event_type="artifact.produced",
                     node_id=node.node_id,
-                    payload={"artifact_id": "resolution_artifact"},
+                    payload={"artifact_id": "resolution_artifact", "relative_ms": 1400},
                 )
         if trace_enabled:
+            if not success:
+                event_log.record(
+                    run_id=run_id,
+                    task_id=task.task_id,
+                    event_type="dead_letter.created",
+                    node_id=node.node_id,
+                    status="dead_letter",
+                    payload={"relative_ms": 1450},
+                )
             event_log.record(
                 run_id=run_id,
                 task_id=task.task_id,
                 event_type="task.finalized",
                 status="success" if success else "dead_letter",
+                payload={"relative_ms": 1500},
             )
+        trace_metrics = _trace_metrics(event_log.to_dicts())
         return RuntimeResult(
             benchmark=task.benchmark,
             domain=task.domain,
@@ -167,8 +260,10 @@ class AdAgentFlowRTAdapter(RuntimeAdapter):
             runtime_metrics={
                 "contract_violations": len(violations),
                 "recovery_actions": len(decisions),
-                "fault_propagation_depth": 0,
-                "contaminated_artifact_count": 0,
+                "fault_propagation_depth": trace_metrics["fault_propagation_depth"],
+                "contaminated_artifact_count": trace_metrics["contaminated_artifact_count"],
+                "mean_time_to_detect_ms": trace_metrics["time_to_detect_ms"],
+                "mean_time_to_recover_ms": trace_metrics["time_to_recover_ms"],
             },
             events=event_log.to_dicts(),
             latency_ms=1200 + 300 * len(decisions),
@@ -199,3 +294,9 @@ def _fallback_recovery_decision(violation):
         budget_cost={"retries": 1, "recovery_steps": 1},
         should_continue=True,
     )
+
+
+def _trace_metrics(events):
+    from experiments.harness.metrics.trace_metrics import compute_trace_metrics
+
+    return compute_trace_metrics(events)

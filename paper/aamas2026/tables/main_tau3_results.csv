@@ -1,0 +1,7 @@
+benchmark,domain,method,ablation,benchmark_adapter_mode,task_success,task_success_rate,p95_latency_ms,dead_letter_rate,recovery_success_rate,cost_per_successful_task
+tau3,airline,adagentflow_rt,,mock,1.0,1.0,1500,0.0,0.5,3.3333333333333335
+tau3,airline,retry_only,,mock,1.0,1.0,2000,0.0,1.0,6.0
+tau3,airline,schema_only,,mock,1.0,1.0,1000,0.0,0.0,3.0
+tau3,airline,vanilla,,mock,0.0,0.0,1200,1.0,0.0,0.0
+tau3,airline,adagentflow_rt,,mock,1.0,1.0,1500,0.0,1.0,4.0
+tau3,airline,adagentflow_rt,without_contract_monitor,mock,0.0,1.0,1200,0.0,0.0,3.0

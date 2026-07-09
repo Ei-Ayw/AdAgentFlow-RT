@@ -25,10 +25,17 @@
     "extra_tool_calls": 0,
     "extra_llm_calls": 1,
     "cost_per_successful_task": 3.3333333333333335,
-    "fault_propagation_depth": 0,
-    "contaminated_artifact_count": 0,
-    "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 1500
+    "fault_propagation_depth": 2,
+    "contaminated_artifact_count": 2,
+    "mean_time_to_detect_ms": 950,
+    "mean_time_to_recover_ms": 300,
+    "trace_event_count": 28,
+    "fault_class_counts": {
+      "artifact_fault": 1
+    },
+    "recovery_action_counts": {
+      "quick_repair": 2
+    }
   },
   {
     "benchmark": "tau3",
@@ -59,7 +66,10 @@
     "fault_propagation_depth": 0,
     "contaminated_artifact_count": 0,
     "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 2000
+    "mean_time_to_recover_ms": 0,
+    "trace_event_count": 0,
+    "fault_class_counts": {},
+    "recovery_action_counts": {}
   },
   {
     "benchmark": "tau3",
@@ -90,7 +100,10 @@
     "fault_propagation_depth": 0,
     "contaminated_artifact_count": 0,
     "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 0
+    "mean_time_to_recover_ms": 0,
+    "trace_event_count": 0,
+    "fault_class_counts": {},
+    "recovery_action_counts": {}
   },
   {
     "benchmark": "tau3",
@@ -121,6 +134,9 @@
     "fault_propagation_depth": 0,
     "contaminated_artifact_count": 0,
     "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 0
+    "mean_time_to_recover_ms": 0,
+    "trace_event_count": 0,
+    "fault_class_counts": {},
+    "recovery_action_counts": {}
   }
 ]

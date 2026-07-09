@@ -28,7 +28,10 @@
     "fault_propagation_depth": 0,
     "contaminated_artifact_count": 0,
     "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 0
+    "mean_time_to_recover_ms": 0,
+    "trace_event_count": 21,
+    "fault_class_counts": {},
+    "recovery_action_counts": {}
   },
   {
     "benchmark": "mock",
@@ -59,7 +62,10 @@
     "fault_propagation_depth": 0,
     "contaminated_artifact_count": 0,
     "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 0
+    "mean_time_to_recover_ms": 0,
+    "trace_event_count": 0,
+    "fault_class_counts": {},
+    "recovery_action_counts": {}
   },
   {
     "benchmark": "mock",
@@ -90,7 +96,10 @@
     "fault_propagation_depth": 0,
     "contaminated_artifact_count": 0,
     "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 0
+    "mean_time_to_recover_ms": 0,
+    "trace_event_count": 0,
+    "fault_class_counts": {},
+    "recovery_action_counts": {}
   },
   {
     "benchmark": "mock",
@@ -121,6 +130,9 @@
     "fault_propagation_depth": 0,
     "contaminated_artifact_count": 0,
     "mean_time_to_detect_ms": 0,
-    "mean_time_to_recover_ms": 0
+    "mean_time_to_recover_ms": 0,
+    "trace_event_count": 0,
+    "fault_class_counts": {},
+    "recovery_action_counts": {}
   }
 ]

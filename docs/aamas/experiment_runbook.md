@@ -84,3 +84,19 @@ Each run should produce JSONL rows with:
 - `dead_letter`
 
 Aggregation produces JSON and CSV summaries. Plotting writes placeholder PDFs until main experiment results are available.
+
+Export paper tables from one or more summaries:
+
+```bash
+.venv/bin/python -m experiments.harness.export_paper_tables \
+  --summary experiments/results/smoke/tau3_airline_stress_medium_summary.json \
+  --summary experiments/results/ablation/full_schema_drift_summary.json \
+  --summary experiments/results/ablation/without_contract_monitor_summary.json
+```
+
+This writes:
+
+- `paper/aamas2026/tables/main_tau3_results.csv`
+- `paper/aamas2026/tables/runtime_stability_metrics.csv`
+- `paper/aamas2026/tables/agentchange_recovery_metrics.csv`
+- `paper/aamas2026/tables/failure_recovery_breakdown.csv`

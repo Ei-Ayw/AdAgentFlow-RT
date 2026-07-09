@@ -1,5 +1,5 @@
-GSRT,TCRR,TSR,TUE,ablation,benchmark,benchmark_adapter_mode,contaminated_artifact_count,contract_violation_rate,cost_per_successful_task,dead_letter_rate,domain,extra_llm_calls,extra_tool_calls,fault_propagation_depth,mean_time_to_detect_ms,mean_time_to_recover_ms,method,p50_latency_ms,p95_latency_ms,p99_latency_ms,policy_compliance,recovery_success_rate,retry_amplification_factor,silent_failure_rate,task_success,task_success_rate,throughput_tasks_per_min,total_tasks
-,,,,,tau3,mock,0,0.3333333333333333,3.3333333333333335,0.0,airline,1,0,0,0,1500,adagentflow_rt,1200,1500,1500,1.0,0.5,1.3333333333333333,0.0,1.0,1.0,46.15384615384615,3
-,,,,,tau3,mock,0,0.0,6.0,0.0,airline,3,6,0,0,2000,retry_only,2000,2000,2000,1.0,1.0,2.0,0.0,1.0,1.0,30.0,3
-,,,,,tau3,mock,0,0.0,3.0,0.0,airline,0,0,0,0,0,schema_only,1000,1000,1000,1.0,0.0,1.0,0.0,1.0,1.0,60.0,3
-,,,,,tau3,mock,0,0.0,0.0,1.0,airline,0,4,0,0,0,vanilla,1100,1200,1200,1.0,0.0,1.0,0.0,0.0,0.0,52.94117647058824,3
+GSRT,TCRR,TSR,TUE,ablation,benchmark,benchmark_adapter_mode,contaminated_artifact_count,contract_violation_rate,cost_per_successful_task,dead_letter_rate,domain,extra_llm_calls,extra_tool_calls,fault_class_counts,fault_propagation_depth,mean_time_to_detect_ms,mean_time_to_recover_ms,method,p50_latency_ms,p95_latency_ms,p99_latency_ms,policy_compliance,recovery_action_counts,recovery_success_rate,retry_amplification_factor,silent_failure_rate,task_success,task_success_rate,throughput_tasks_per_min,total_tasks,trace_event_count
+,,,,,tau3,mock,2,0.3333333333333333,3.3333333333333335,0.0,airline,1,0,{'artifact_fault': 1},2,950,300,adagentflow_rt,1200,1500,1500,1.0,{'quick_repair': 2},0.5,1.3333333333333333,0.0,1.0,1.0,46.15384615384615,3,28
+,,,,,tau3,mock,0,0.0,6.0,0.0,airline,3,6,{},0,0,0,retry_only,2000,2000,2000,1.0,{},1.0,2.0,0.0,1.0,1.0,30.0,3,0
+,,,,,tau3,mock,0,0.0,3.0,0.0,airline,0,0,{},0,0,0,schema_only,1000,1000,1000,1.0,{},0.0,1.0,0.0,1.0,1.0,60.0,3,0
+,,,,,tau3,mock,0,0.0,0.0,1.0,airline,0,4,{},0,0,0,vanilla,1100,1200,1200,1.0,{},0.0,1.0,0.0,0.0,0.0,52.94117647058824,3,0
