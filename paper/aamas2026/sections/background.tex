@@ -3,3 +3,21 @@
 Multi-agent workflows fail in ways that are not captured by final task success alone. A workflow can complete while using stale context, propagating a contaminated artifact, violating a resource budget, silently accepting a malformed tool response, or retrying until cost becomes unacceptable.
 
 Retry and prompt repair are useful but insufficient as the only reliability mechanism. They do not identify the responsible node, downstream contamination, recovery budget, or whether the runtime should rollback, reroute, degrade, escalate, or dead-letter a task.
+
+\subsection{Failure Modes}
+
+We focus on failures that appear at runtime boundaries:
+
+\begin{itemize}
+    \item \textbf{Contract failures}: malformed outputs, schema drift, missing artifacts, failed preconditions, or semantic mismatch.
+    \item \textbf{Coordination failures}: duplicate node execution, stale context, missing dependency artifacts, and inconsistent downstream state.
+    \item \textbf{Resource failures}: latency, token, tool-call, or retry budgets exceeded during long-horizon execution.
+    \item \textbf{Environment failures}: tool timeouts, rate limits, partial responses, and worker crashes.
+    \item \textbf{Silent failures}: runtime success states that disagree with benchmark-native evaluation.
+\end{itemize}
+
+These failures motivate runtime-level guarantees that are orthogonal to model capability. A stronger model may complete more tasks, but a production runtime still needs traceability, bounded recovery, and controlled failure containment.
+
+\subsection{Why Public Benchmarks Are Still Needed}
+
+The harness deliberately uses public benchmarks instead of creating a new dataset. Public tasks provide comparability and established native metrics. The harness adds stress dimensions around them: concurrency, repeated trials, injected tool faults, schema drift, duplicate execution, stale context, and recovery budgets. This separation lets the paper ask a runtime question without weakening the benchmark question.

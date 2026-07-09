@@ -186,18 +186,33 @@ def write_minimal_pdf(path: Path, title: str, rows: List[Dict[str, Any]]) -> Non
         f"BT /F1 9 Tf 48 {740 - idx * 18} Td ({_pdf_escape(line)}) Tj ET"
         for idx, line in enumerate(lines[:36])
     )
-    pdf = (
-        "%PDF-1.4\n"
-        "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
-        "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n"
-        "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-        "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj\n"
-        "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n"
-        f"5 0 obj << /Length {len(stream)} >> stream\n{stream}\nendstream endobj\n"
-        "xref\n0 6\n0000000000 65535 f \n"
-        "trailer << /Root 1 0 R /Size 6 >>\nstartxref\n0\n%%EOF\n"
-    )
-    path.write_text(pdf, encoding="utf-8")
+    write_pdf(path, stream)
+
+
+def write_pdf(path: Path, stream: str) -> None:
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        (
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"
+        ),
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        f"<< /Length {len(stream.encode('utf-8'))} >>\nstream\n{stream}\nendstream",
+    ]
+    chunks = ["%PDF-1.4\n"]
+    offsets = [0]
+    current = len(chunks[0].encode("utf-8"))
+    for idx, obj in enumerate(objects, start=1):
+        offsets.append(current)
+        chunk = f"{idx} 0 obj\n{obj}\nendobj\n"
+        chunks.append(chunk)
+        current += len(chunk.encode("utf-8"))
+    xref_offset = current
+    xref_lines = ["xref\n", "0 6\n", "0000000000 65535 f \n"]
+    xref_lines.extend(f"{offset:010d} 00000 n \n" for offset in offsets[1:])
+    trailer = f"trailer\n<< /Root 1 0 R /Size 6 >>\nstartxref\n{xref_offset}\n%%EOF\n"
+    path.write_text("".join(chunks + xref_lines + [trailer]), encoding="utf-8")
 
 
 def _pdf_escape(value: str) -> str:

@@ -2,6 +2,19 @@
 
 Long-horizon agent systems increasingly combine planning, tool use, memory, verification, and multiple specialized agents. Public benchmarks have improved the field's ability to measure task completion, but production deployments face a broader reliability problem: the runtime must bound cost, detect contract violations, avoid silent failures, contain faulty artifacts, recover without unbounded retry loops, and preserve traces that support diagnosis.
 
-AdAgentFlow-RT reframes an existing multi-agent engineering prototype as a contractual runtime for reliable high-throughput multi-agent workflows. The advertising generation workflow remains an example domain, while the paper contribution is a reusable runtime abstraction and evaluation harness.
+\system reframes an existing multi-agent engineering prototype as a contractual runtime for reliable high-throughput multi-agent workflows. The prior advertising generation workflow remains an example domain plugin. The paper contribution is a reusable runtime abstraction and a stress evaluation harness that can wrap public task environments without changing their task data.
 
 This work makes three claims. First, runtime contracts should cover schemas, semantics, dependencies, budgets, and recovery policies, not only JSON validity. Second, production reliability should be evaluated under controlled concurrency and fault injection on top of public task benchmarks. Third, event-sourced traces and bounded recovery make failures more diagnosable and reduce retry amplification compared with vanilla, retry-only, and schema-only baselines.
+
+The key distinction from a benchmark paper is that the workload is not new. tau2-bench / tau3-bench and AgentChangeBench provide public task environments and native evaluation signals~\cite{tau2bench,agentchangebench}. \system contributes the execution substrate around those tasks: contract enforcement, fault localization, bounded recovery, dead-letter handling, and trace-derived reliability metrics.
+
+This paper makes the following contributions:
+
+\begin{itemize}
+    \item A contractual execution model for long-horizon multi-agent workflows, including contracts over artifacts, dependencies, resources, and recovery behavior.
+    \item A production-oriented runtime kernel with a scheduler, monitor, artifact store, fault localizer, recovery controller, and event-sourced trace.
+    \item A stress evaluation harness that runs comparable runtime strategies under the same tasks, models, tools, fault distributions, concurrency, and recovery budgets.
+    \item A reliability metric suite that complements benchmark-native success with dead-letter rate, recovery success, retry amplification, silent failure rate, fault propagation depth, contaminated artifact count, and mean time to detect and recover.
+\end{itemize}
+
+The current artifact includes a deterministic smoke harness and external command planning for tau2-bench / tau3-bench and AgentChangeBench. Full benchmark-scale experiments are planned after smoke validation, following the protocol in Section~\ref{sec:evaluation}.

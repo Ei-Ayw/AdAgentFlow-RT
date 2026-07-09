@@ -1,3 +1,15 @@
 \section{Discussion}
 
 The contractual runtime trades additional monitoring and trace overhead for improved diagnosability and bounded recovery. The key limitation is that semantic checks require domain-specific verifiers or benchmark-specific policies. The harness is designed so stronger verifiers can be added without changing workload data.
+
+\subsection{Cost and Reliability}
+
+Contracts and traces add runtime work. The relevant tradeoff is not raw latency alone, but cost per successful task under fault injection. A retry-only strategy may appear simple, but can amplify tool and LLM calls without identifying the contaminated artifact. \system pays monitoring overhead to reduce silent failures and make recovery decisions inspectable.
+
+\subsection{Limits of the Current Artifact}
+
+The current repository contains a deterministic smoke harness and external benchmark command planning. It does not yet claim full tau2-bench / tau3-bench or AgentChangeBench results. Full claims require installed benchmark checkouts, configured models, repeated trials, and the main experiment matrix. The smoke artifacts are included to verify that the harness writes JSONL rows, aggregates metrics, exports figures, and produces paper tables.
+
+\subsection{Threats to Validity}
+
+Fault distributions may not match all production incidents. Semantic contracts can be incomplete or domain-biased. Some recovery actions, such as rerouting and rollback, are currently implemented as in-memory skeletons rather than deeply integrated with the existing database-backed orchestrator. These limits are acceptable for the current runtime-kernel phase, but must be addressed before making production claims.

@@ -1,5 +1,28 @@
 \section{Contractual Execution Model}
+\label{sec:method}
 
-AdAgentFlow-RT models a multi-agent workflow as a Contractual Execution Graph. Nodes declare a role, capability, agent provider, and contract name. Edges declare artifact dependencies. Contracts define input and output schemas, preconditions, postconditions, semantic checks, resource budgets, recovery policies, and escalation policies.
+\system models a multi-agent workflow as a Contractual Execution Graph. Nodes declare a role, capability, agent provider, and contract name. Edges declare artifact dependencies. Contracts define input and output schemas, preconditions, postconditions, semantic checks, resource budgets, recovery policies, and escalation policies.
 
 The first implementation supports DAG execution, including sequential paths, fan-out, joins, fallback branches, and rollback targets. Each produced artifact carries provenance, validation status, and downstream consumers. This makes failure propagation explicit and measurable.
+
+\subsection{Contracts}
+
+A contract binds a runtime capability to observable obligations:
+
+\begin{itemize}
+    \item \textbf{Schema contract}: validates inputs and outputs.
+    \item \textbf{Semantic contract}: captures domain invariants such as policy compliance or goal alignment.
+    \item \textbf{Dependency contract}: requires upstream artifacts to exist and be valid before a node runs.
+    \item \textbf{Budget contract}: bounds latency, LLM calls, tool calls, tokens, and retries.
+    \item \textbf{Recovery contract}: lists permitted recovery actions and escalation behavior.
+\end{itemize}
+
+The current implementation represents contracts as typed Python dataclasses and supports JSON-Schema validation with a dependency-light fallback validator for minimal environments.
+
+\subsection{Artifacts and Propagation}
+
+Every node produces zero or more artifacts. An artifact records its producer, contract name, content, validation status, provenance, and downstream consumers. When a contract violation occurs, the runtime localizes the responsible node and traverses the graph to estimate affected downstream nodes and contaminated artifacts. These quantities directly support the metrics \textit{fault propagation depth} and \textit{contaminated artifact count}.
+
+\subsection{Bounded Recovery}
+
+Recovery is selected from a bounded policy rather than an open-ended retry loop. The controller currently supports quick repair, retry, mock reroute, rollback target selection, downstream invalidation, degradation, human escalation, and dead-letter. A recovery decision records the selected action, target node, reason, budget cost, and whether execution may continue.

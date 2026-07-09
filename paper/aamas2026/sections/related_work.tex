@@ -1,3 +1,19 @@
 \section{Related Work}
 
-This work relates to agent benchmarks, multi-agent frameworks, runtime verification, workflow orchestration, fault injection, chaos engineering, and production observability. Unlike task-only benchmark evaluations, AdAgentFlow-RT focuses on operational reliability under stress.
+This work relates to agent benchmarks, multi-agent frameworks, runtime verification, workflow orchestration, fault injection, chaos engineering, and production observability. Unlike task-only benchmark evaluations, \system focuses on operational reliability under stress.
+
+\subsection{Agent Benchmarks}
+
+Agent benchmarks evaluate task completion, tool-use correctness, policy compliance, and goal-change behavior. This work treats tau2-bench / tau3-bench and AgentChangeBench~\cite{tau2bench,agentchangebench} as workload providers rather than datasets to replace. The harness preserves native metrics and adds runtime-stability metrics around the same tasks.
+
+\subsection{Multi-Agent Frameworks}
+
+Multi-agent frameworks provide abstractions for agent composition, tool invocation, message routing, planning, and memory~\cite{autogen,react}. \system complements these capabilities with execution contracts, bounded recovery, event traces, dead-letter behavior, and stress evaluation.
+
+\subsection{Runtime Verification and Observability}
+
+Runtime verification checks whether executions satisfy specified properties. \system adapts this view to probabilistic agent workflows by making contracts executable and recovery-aware. Production observability motivates the event-sourced trace: every violation, diagnosis, and recovery decision must be attributable to a task, run, and node.
+
+\subsection{Fault Injection}
+
+Fault injection and chaos engineering test whether a system remains reliable under controlled failures~\cite{chaosengineering}. The harness applies those ideas to multi-agent runtime boundaries: tool calls, context, schema, worker execution, and duplicate delivery.

@@ -1,5 +1,59 @@
 \section{Experiments}
+\label{sec:experiments}
 
-The smoke setting runs three tasks per domain, one trial, concurrency one, no injected faults, and all four runtime methods. The main setting varies concurrency, fault rate, domains, trials, and runtime strategy.
+The smoke setting runs three tasks per domain, one trial, concurrency one, and all four runtime methods. We use this setting to validate adapter execution, result persistence, trace generation, aggregation, plotting, and ablation scripts before any full-scale benchmark run.
 
-Planned figures include success rate versus concurrency, latency versus concurrency, recovery and dead-letter rate versus fault rate, cost per successful task, AgentChangeBench recovery metrics, and ablation results. Planned tables include framework comparisons, tau3 results, runtime stability metrics, ablations, and recovery action distributions.
+The main setting varies concurrency, fault rate, domains, trials, and runtime strategy. The intended matrix uses tau2-bench / tau3-bench over airline, retail, and telecom with 20--30 tasks per domain, three trials, concurrency 1/5/10/20, and fault rates 0/0.1/0.2. A compressed matrix uses airline and retail, 20 tasks per domain, two trials, concurrency 1/10/20, and fault rates 0/0.2.
+
+\subsection{Smoke Results}
+
+The current repository includes smoke artifacts produced by the deterministic harness. The results are not full benchmark claims; they validate that runtime traces, stressors, metrics, figures, and tables are generated end-to-end.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/success_vs_concurrency.pdf}
+    \Description{A generated figure artifact summarizing success-rate values by method.}
+    \caption{Success-rate figure artifact generated from aggregated summaries.}
+    \label{fig:success}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/recovery_vs_fault_rate.pdf}
+    \Description{A generated figure artifact summarizing recovery success and dead-letter rate by method.}
+    \caption{Recovery and dead-letter artifact generated from fault-injection summaries.}
+    \label{fig:recovery}
+\end{figure}
+
+\begin{table}[t]
+    \centering
+    \caption{Smoke runtime stability metrics are exported to `runtime\_stability\_metrics.csv'.}
+    \label{tab:runtime}
+    \begin{tabular}{lrrrr}
+        \toprule
+        Method & Viol. & Silent & Prop. & Recover ms \\
+        \midrule
+        AdAgentFlow-RT & 1.0 & 0.0 & 2 & 300 \\
+        w/o monitor & 0.0 & 1.0 & 0 & 0 \\
+        Retry-only & 0.0 & 0.0 & 0 & 0 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+The schema-drift ablation illustrates the intended diagnostic distinction. Full \system detects schema drift, localizes it as an artifact fault, applies quick repair, and records nonzero detection and recovery times. The `without contract monitor' ablation marks the runtime task as successful while benchmark-native task success is false, producing a silent failure rate of 1.0 in the smoke artifact.
+
+\subsection{Ablation Plan}
+
+The minimum ablation set includes full \system, without contract monitor, without fault localizer, without bounded recovery, without event trace, and retry-only. Planned extended ablations remove semantic contracts, rollback/invalidation, and backpressure once the external benchmark matrix is running.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/ablation_study.pdf}
+    \Description{A generated figure artifact comparing full runtime and ablation rows.}
+    \caption{Ablation figure artifact generated from smoke summaries.}
+    \label{fig:ablation}
+\end{figure}
+
+\subsection{External Benchmark Runs}
+
+External command planning is implemented for tau2-bench / tau3-bench and AgentChangeBench. When a benchmark checkout is provided, the adapter records the planned command in the JSONL output and separates those rows from deterministic mock rows using `benchmark\_adapter\_mode'. The next experimental step is to execute these planned commands against installed benchmark checkouts and replace smoke-only figure data with full benchmark results.

@@ -1,5 +1,36 @@
 \section{Production-Stress Evaluation Harness}
+\label{sec:evaluation}
 
 The harness wraps public benchmark tasks without modifying their data. tau2-bench / tau3-bench provide the main workload across airline, retail, and telecom domains. AgentChangeBench provides supplementary goal-change recovery evaluation across airline and retail domains.
 
 We compare vanilla tool calling, retry-only execution, schema-only validation, and AdAgentFlow-RT. Stressors include tool timeouts, rate limits, partial responses, schema drift, stale context, duplicate messages, and worker crashes. All experiments write JSONL records with benchmark-native metrics, runtime metrics, injected faults, events, and recovery outcomes.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/stress_harness.pdf}
+    \Description{A pipeline from benchmark task to runtime adapter, stress layer, runtime strategy, benchmark environment, and evaluator.}
+    \caption{Production-stress harness layered around public benchmark tasks.}
+    \label{fig:harness}
+\end{figure}
+
+Figure~\ref{fig:harness} summarizes the evaluation path. A benchmark task is passed to a runtime adapter, stressors perturb tool or context boundaries, a runtime strategy executes the task, and benchmark-native and runtime-native evaluators produce a unified JSONL record.
+
+\subsection{Benchmark Adapters}
+
+The tau2-bench / tau3-bench adapter supports `benchmark\_repo\_path', domain, task identifiers, number of tasks, trials, agent model, user model, and concurrency. If the external benchmark checkout is absent, the harness fails with a clear diagnostic in external mode or uses deterministic mock tasks in smoke mode. The AgentChangeBench adapter preserves the native metric slots TSR, TUE, TCRR, and GSRT.
+
+\subsection{Stressors}
+
+Stressors share a reproducible interface with a rate and seed. The implemented stressors simulate timeouts, rate limits, partial responses, schema drift, stale context, duplicate messages, and worker crashes. Each injected fault is recorded in the JSONL row and, for \system, in the runtime trace.
+
+\subsection{Metrics}
+
+The harness reports benchmark-native task success and policy metrics, plus runtime-stability metrics:
+
+\begin{itemize}
+    \item throughput, p50/p95/p99 latency, dead-letter rate, and cost per successful task;
+    \item recovery success rate, contract violation rate, retry amplification, extra tool calls, and extra LLM calls;
+    \item silent failure rate, fault propagation depth, contaminated artifact count, mean time to detect, and mean time to recover.
+\end{itemize}
+
+Every experiment writes machine-readable JSONL. Aggregation scripts produce JSON and CSV summaries, figure data, and paper-facing tables.
