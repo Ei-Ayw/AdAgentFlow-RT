@@ -15,6 +15,7 @@ set -euo pipefail
 GPU_HOST="connect.westd.seetacloud.com"
 GPU_PORT="30421"
 GPU_USER="root"
+GPU_PASS="${GPU_PASS:-${SSHPASS:-}}"
 MATRIX_DIR="${MATRIX_DIR:-/root/experiments/results/real_full_v2}"
 LOCAL_DIR="experiments/results/main/real_full_v2"
 SUPP_ZIP="supplementary/aamas2026_supplementary.zip"
@@ -22,6 +23,8 @@ CONTROLLED_DIR="${LOCAL_DIR}/controlled_fault"
 REFERENCE_SET="${LOCAL_DIR}/reference_set.jsonl"
 TAU3_TASKS="data/external/tau2-bench/data/tau2/domains/airline/tasks.json"
 PYTHON_BIN="${PYTHON_BIN:-python}"
+RSYNC_RETRIES="${RSYNC_RETRIES:-12}"
+RSYNC_RETRY_SLEEP="${RSYNC_RETRY_SLEEP:-15}"
 
 usage() {
   cat <<EOF
@@ -50,9 +53,37 @@ if [[ "${LOCAL_ONLY}" == "1" ]]; then
 else
   echo "[1/5] Pulling ${MATRIX_DIR} from ${GPU_USER}@${GPU_HOST}:${GPU_PORT}"
   mkdir -p "${LOCAL_DIR}"
-  rsync -avz --delete \
-    -e "ssh -p ${GPU_PORT} -o BatchMode=yes" \
-    "${GPU_USER}@${GPU_HOST}:${MATRIX_DIR}/" "${LOCAL_DIR}/" | tail -3
+  pulled=0
+  for (( attempt=1; attempt<=RSYNC_RETRIES; attempt++ )); do
+    if [[ -n "${GPU_PASS}" ]] && command -v sshpass >/dev/null 2>&1; then
+      if out=$(sshpass -p "${GPU_PASS}" rsync -avz --delete \
+        -e "ssh -p ${GPU_PORT} -o StrictHostKeyChecking=no -o PreferredAuthentications=password -o PubkeyAuthentication=no -o ConnectTimeout=20" \
+        "${GPU_USER}@${GPU_HOST}:${MATRIX_DIR}/" "${LOCAL_DIR}/" 2>&1); then
+        printf '%s\n' "${out}" | tail -3
+        pulled=1
+        break
+      fi
+    else
+      if out=$(rsync -avz --delete \
+        -e "ssh -p ${GPU_PORT} -o BatchMode=yes -o ConnectTimeout=20" \
+        "${GPU_USER}@${GPU_HOST}:${MATRIX_DIR}/" "${LOCAL_DIR}/" 2>&1); then
+        printf '%s\n' "${out}" | tail -3
+        pulled=1
+        break
+      fi
+    fi
+    if grep -Eq 'Exceeded MaxStartups|banner exchange|Connection closed|timed out' <<<"${out}"; then
+      echo "rsync transient failure (${attempt}/${RSYNC_RETRIES}): ${out}"
+      sleep "${RSYNC_RETRY_SLEEP}"
+      continue
+    fi
+    echo "${out}"
+    exit 1
+  done
+  if [[ "${pulled}" != "1" ]]; then
+    echo "rsync failed after ${RSYNC_RETRIES} attempts"
+    exit 1
+  fi
 fi
 
 echo "[2/5] Aggregating + refreshing paper artifacts"

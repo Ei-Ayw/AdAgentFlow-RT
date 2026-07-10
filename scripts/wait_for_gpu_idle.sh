@@ -15,6 +15,7 @@ set -euo pipefail
 GPU_HOST="connect.westd.seetacloud.com"
 GPU_PORT="30421"
 GPU_USER="root"
+GPU_PASS="${GPU_PASS:-${SSHPASS:-}}"
 THRESHOLD="${THRESHOLD:-25}"             # max GPU util % to count as idle
 QUIET_FOR="${QUIET_FOR:-120}"            # seconds GPU must stay below THRESHOLD
 POLL_INTERVAL="${POLL_INTERVAL:-30}"     # seconds between polls
@@ -24,8 +25,42 @@ NUM_TASKS="${NUM_TASKS:-6}"
 NUM_TRIALS="${NUM_TRIALS:-2}"
 CONCURRENCIES="${CONCURRENCIES:-1,5}"
 FAULT_RATES="${FAULT_RATES:-0.0,0.1,0.2}"
+SSH_RETRIES="${SSH_RETRIES:-12}"
+SSH_RETRY_SLEEP="${SSH_RETRY_SLEEP:-15}"
 
-ssh_base() { ssh -o BatchMode=yes -p "${GPU_PORT}" "${GPU_USER}@${GPU_HOST}" "$@"; }
+ssh_base() {
+  local remote_cmd="$1"
+  local attempt output status
+  for (( attempt=1; attempt<=SSH_RETRIES; attempt++ )); do
+    if [[ -n "${GPU_PASS}" ]] && command -v sshpass >/dev/null 2>&1; then
+      output=$(sshpass -p "${GPU_PASS}" ssh \
+        -o StrictHostKeyChecking=no \
+        -o PreferredAuthentications=password \
+        -o PubkeyAuthentication=no \
+        -o ConnectTimeout=20 \
+        -p "${GPU_PORT}" "${GPU_USER}@${GPU_HOST}" "${remote_cmd}" 2>&1) && {
+        printf '%s\n' "${output}"
+        return 0
+      }
+      status=$?
+    else
+      output=$(ssh -o BatchMode=yes -o ConnectTimeout=20 -p "${GPU_PORT}" "${GPU_USER}@${GPU_HOST}" "${remote_cmd}" 2>&1) && {
+        printf '%s\n' "${output}"
+        return 0
+      }
+      status=$?
+    fi
+    if grep -Eq 'Exceeded MaxStartups|banner exchange|Connection closed|timed out' <<<"${output}"; then
+      log "ssh transient failure (${attempt}/${SSH_RETRIES}): ${output}"
+      sleep "${SSH_RETRY_SLEEP}"
+      continue
+    fi
+    printf '%s\n' "${output}" >&2
+    return "${status}"
+  done
+  printf '%s\n' "${output}" >&2
+  return "${status:-255}"
+}
 
 gpu_util() {
   ssh_base 'nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total --format=csv,noheader,nounits' \
