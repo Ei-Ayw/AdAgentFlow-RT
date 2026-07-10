@@ -18,6 +18,7 @@ class SchemaOnlyAdapter(RuntimeAdapter):
             task=task,
             method=self.method_name,
             seed=stable_task_seed(task.task_id, self.method_name),
+            context=context,
             stressors=stressors,
             runtime_config=runtime_config,
         )

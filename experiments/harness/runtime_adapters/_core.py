@@ -1,24 +1,21 @@
-"""Shared runtime adapter helpers for LLM-backed runs.
-
-All four runtime strategies share this skeleton. They differ in:
-- whether they call schema validators and recovery on violation
-- whether they retry on transient faults
-- how they treat off-policy / drift responses
-
-The skeleton calls the SyncLLMClient (real GPU server or deterministic
-simulator), tracks tool/LLM/cost stats, and computes native metrics.
-
-When the benchmark adapter loads real τ³-bench / AgentChangeBench tasks the
-prompt is augmented with the domain's policy text and the real tool list so
-the LLM sees the actual benchmark context.
-"""
+"""Shared runtime adapter helpers for LLM-backed runs."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from app.contracts.models import Artifact, Contract, ContractViolation, ResourceBudget
+from app.contracts.registry import ContractRegistry
+from app.runtime.artifact_store import InMemoryArtifactStore
+from app.runtime.fault_localizer import FaultLocalizer
+from app.runtime.graph import RuntimeNode
+from app.runtime.monitor import RuntimeMonitor
+from app.runtime.planner import sequential_graph
+from app.runtime.recovery import RecoveryController
+from app.runtime.scheduler import RuntimeScheduler
 from experiments.harness.external_data import evaluate_external
+from experiments.harness.fault_plans import planned_faults_for
 from experiments.harness.llm import LLMCallStats, SyncLLMClient
 from experiments.harness.runtime_adapters.base import RuntimeResult
 from experiments.harness.scenarios import ScenarioTask, evaluate_native
@@ -30,6 +27,15 @@ SCHEMA_HINT = {
     "properties": {
         "resolution": {"type": "string"},
         "policy_compliant": {"type": "boolean"},
+    },
+}
+
+TOOL_SCHEMA = {
+    "type": "object",
+    "required": ["tool", "status"],
+    "properties": {
+        "tool": {"type": "string"},
+        "status": {"type": "string"},
     },
 }
 
@@ -48,9 +54,7 @@ def _prompt_for_task(task_payload: Dict[str, Any]) -> Tuple[str, str]:
         '"resolution" (string) and "policy_compliant" (boolean).'
     ]
     if policy_text:
-        system_parts.append(
-            "You MUST follow this domain policy strictly:\n" + policy_text
-        )
+        system_parts.append("You MUST follow this domain policy strictly:\n" + policy_text)
     system = "\n\n".join(system_parts)
 
     user_parts = [
@@ -70,19 +74,21 @@ def _prompt_for_task(task_payload: Dict[str, Any]) -> Tuple[str, str]:
     user_parts.append(
         'Respond strictly as JSON: {"resolution": "...", "policy_compliant": true|false}'
     )
-    user = "\n".join(user_parts)
-    return system, user
+    return system, "\n".join(user_parts)
 
 
 def _extract_tools_from_text(text: str, candidate_tools: List[str]) -> List[str]:
     if not text:
         return []
-    used: List[str] = []
     text_lc = text.lower()
-    for tool in candidate_tools:
-        if tool.lower() in text_lc:
-            used.append(tool)
-    return used
+    return [tool for tool in candidate_tools if tool.lower() in text_lc]
+
+
+def _infer_policy_flag(text: str) -> bool:
+    text_lc = (text or "").lower()
+    if any(token in text_lc for token in ("cannot", "decline", "not allowed", "policy violation")):
+        return False
+    return any(token in text_lc for token in ("completed", "resolved", "per policy", "policy"))
 
 
 def _detect_violations(parsed: Optional[Dict[str, Any]], raw_text: str) -> List[Dict[str, Any]]:
@@ -97,28 +103,23 @@ def _detect_violations(parsed: Optional[Dict[str, Any]], raw_text: str) -> List[
         violations.append({"type": "SCHEMA_VIOLATION", "message": "missing required keys", "severity": "high"})
     if "policyCompliant" in parsed and "policy_compliant" not in parsed:
         violations.append({"type": "SCHEMA_VIOLATION", "message": "key naming drift (policyCompliant)", "severity": "low"})
-    if parsed.get("policy_compliant") is True and "I am not sure" in (parsed.get("resolution") or "").lower():
+    if parsed.get("policy_compliant") is True and "i am not sure" in (parsed.get("resolution") or "").lower():
         violations.append({"type": "SEMANTIC_DRIFT", "message": "policy_compliant true but resolution expresses uncertainty", "severity": "medium"})
-    if not parsed.get("policy_compliant") and "completed" in (parsed.get("resolution") or "").lower():
+    if parsed.get("policy_compliant") is False and "completed" in (parsed.get("resolution") or "").lower():
         violations.append({"type": "SEMANTIC_DRIFT", "message": "policy_compliant false but resolution says completed", "severity": "medium"})
     return violations
 
 
 def _stats_sum(stats: List[LLMCallStats]) -> Dict[str, float]:
-    in_tok = sum(s.input_tokens for s in stats)
-    out_tok = sum(s.output_tokens for s in stats)
-    latency = sum(s.latency_ms for s in stats)
-    cost = round(sum(s.cost_estimate for s in stats), 6)
     return {
-        "input_tokens": in_tok,
-        "output_tokens": out_tok,
-        "latency_ms": latency,
-        "cost_estimate": cost,
+        "input_tokens": sum(s.input_tokens for s in stats),
+        "output_tokens": sum(s.output_tokens for s in stats),
+        "latency_ms": sum(s.latency_ms for s in stats),
+        "cost_estimate": round(sum(s.cost_estimate for s in stats), 6),
     }
 
 
 def _payload_to_scenario(payload: Dict[str, Any]) -> ScenarioTask:
-    """Convert a BenchmarkTask payload dict into a minimal ScenarioTask."""
     return ScenarioTask(
         task_id="",
         domain=str(payload.get("domain", "")),
@@ -135,8 +136,8 @@ def _payload_to_scenario(payload: Dict[str, Any]) -> ScenarioTask:
 
 
 def _payload_to_external_task(payload: Dict[str, Any]):
-    """Re-hydrate an ExternalTask from a payload so the external scorer can run."""
     from experiments.harness.external_data import ExternalTask
+
     return ExternalTask(
         benchmark=str(payload.get("_benchmark", "tau3")),
         domain=str(payload.get("domain", "")),
@@ -171,7 +172,8 @@ def _build_runtime_result(
     events: List[Dict[str, Any]],
     contract_violations: int,
     recovery_actions: int,
-    error: Optional[str],
+    bounded_recovery_actions: int = 0,
+    error: Optional[str] = None,
 ) -> RuntimeResult:
     s = _stats_sum(llm_stats)
     return RuntimeResult(
@@ -189,6 +191,7 @@ def _build_runtime_result(
         runtime_metrics={
             "contract_violations": contract_violations,
             "recovery_actions": recovery_actions,
+            "bounded_recovery_actions": bounded_recovery_actions,
             "input_tokens": s["input_tokens"],
             "output_tokens": s["output_tokens"],
             "llm_cost_estimate": s["cost_estimate"],
@@ -205,91 +208,431 @@ def _build_runtime_result(
     )
 
 
+def _normalize_result_payload(raw_text: str, parsed: Optional[Dict[str, Any]]) -> Tuple[str, Optional[Dict[str, Any]]]:
+    if isinstance(parsed, dict):
+        candidate = dict(parsed)
+    else:
+        candidate = {"resolution": raw_text.strip(), "policy_compliant": _infer_policy_flag(raw_text)}
+    if "policyCompliant" in candidate and "policy_compliant" not in candidate:
+        candidate["policy_compliant"] = candidate.pop("policyCompliant")
+    if "resolution" not in candidate and "content" in candidate:
+        candidate["resolution"] = str(candidate.get("content") or "")
+    if "policy_compliant" not in candidate:
+        candidate["policy_compliant"] = _infer_policy_flag(str(candidate.get("resolution") or raw_text))
+    if "resolution" not in candidate:
+        candidate["resolution"] = str(raw_text or "")
+    normalized = {
+        "resolution": str(candidate.get("resolution") or ""),
+        "policy_compliant": bool(candidate.get("policy_compliant")),
+    }
+    return json.dumps(normalized, ensure_ascii=False), normalized
+
+
+def _apply_planned_faults(
+    *,
+    task: Any,
+    method: str,
+    phase: str,
+    attempt: int,
+    raw_text: str,
+    parsed: Optional[Dict[str, Any]],
+    stressors: List[Any],
+    fault_plan: List[Dict[str, Any]],
+    injected: List[Dict[str, Any]],
+    log_event,
+) -> Tuple[str, Optional[Dict[str, Any]]]:
+    response_obj = dict(parsed) if isinstance(parsed, dict) else {"content": raw_text}
+    if "content" not in response_obj:
+        response_obj["content"] = raw_text
+    for stressor in stressors:
+        for entry in planned_faults_for(
+            fault_plan=fault_plan,
+            stressor_name=stressor.name,
+            phase=phase,
+            attempt=attempt,
+        ):
+            fault = stressor.apply(response_obj)
+            fault.update(
+                {
+                    "task_id": task.task_id,
+                    "method": method,
+                    "phase": phase,
+                    "attempt": attempt,
+                    "injection_point": entry.injection_point,
+                    "fault_seed": entry.fault_seed,
+                }
+            )
+            injected.append(fault)
+            log_event("fault.injected", **{k: fault[k] for k in ("stressor", "attempt", "injection_point", "fault_seed")})
+    body = {k: v for k, v in response_obj.items() if k != "content"}
+    if body:
+        return json.dumps(body, ensure_ascii=False), body
+    return str(response_obj.get("content") or raw_text), None
+
+
+def _quick_repair_payload(payload: Dict[str, Any], *, schema_type: str) -> Dict[str, Any]:
+    repaired = dict(payload)
+    if schema_type == "tool":
+        if "tool" not in repaired:
+            repaired["tool"] = str(repaired.get("drifted_tool") or repaired.get("content") or "tool")
+        if "status" not in repaired:
+            repaired["status"] = "ok"
+        return {"tool": str(repaired["tool"]), "status": str(repaired["status"])}
+    _, normalized = _normalize_result_payload(str(repaired.get("content") or ""), repaired)
+    return normalized or {"resolution": "", "policy_compliant": False}
+
+
+def _evaluate_native_metrics(*, task_payload: Dict[str, Any], raw_text: str, tool_sequence: List[str]) -> Dict[str, Any]:
+    scenario = _payload_to_scenario(task_payload)
+    if task_payload.get("adapter_mode") == "external" or task_payload.get("policy_text"):
+        return evaluate_external(
+            task=_payload_to_external_task(task_payload),
+            generated_text=raw_text,
+            tool_sequence=tool_sequence,
+        )
+    return evaluate_native(
+        task=scenario,
+        generated_text=raw_text,
+        generated_actions=[],
+        tool_sequence=tool_sequence,
+    )
+
+
+def _final_contract_satisfied(parsed: Optional[Dict[str, Any]]) -> bool:
+    return isinstance(parsed, dict) and {"resolution", "policy_compliant"}.issubset(parsed)
+
+
+def _evaluate_with_runtime_kernel(
+    *,
+    task: Any,
+    seed: int,
+    stressors: List[Any],
+    runtime_config: Dict[str, Any],
+    context: Dict[str, Any],
+) -> RuntimeResult:
+    run_id = f"run_{uuid4().hex}"
+    ablation = runtime_config.get("ablation")
+    task_payload = task.payload or {}
+    system, user = _prompt_for_task(task_payload)
+    candidate_tools = list(task_payload.get("expected_tool_sequence") or task_payload.get("tools") or ["lookup"])
+    candidate_tools = candidate_tools[: max(1, min(3, len(candidate_tools)))]
+    max_retries = int(runtime_config.get("max_retries", 2))
+    use_localizer = ablation != "without_fault_localizer"
+    use_monitor = ablation != "without_contract_monitor"
+    use_recovery = ablation != "without_bounded_recovery"
+    use_event_trace = ablation != "without_event_trace"
+
+    client = SyncLLMClient(method="adagentflow_rt", seed=seed)
+    llm_stats: List[LLMCallStats] = []
+    events: List[Dict[str, Any]] = []
+    injected: List[Dict[str, Any]] = []
+    tool_sequence: List[str] = []
+    contract_violations = 0
+    recovery_actions = 0
+    bounded_recovery_actions = 0
+    attempts = 0
+    resolve_attempts = 0
+    recovered = False
+    error: Optional[str] = None
+    raw_text = ""
+    parsed: Optional[Dict[str, Any]] = None
+
+    def _log_event(event_type: str, **payload: Any) -> None:
+        if use_event_trace:
+            events.append({"event_type": event_type, "payload": payload})
+
+    steps = [
+        RuntimeNode(node_id=f"tool_{idx}", role="tool", capability=tool, contract_name=f"tool.contract.{idx}")
+        for idx, tool in enumerate(candidate_tools)
+    ]
+    steps.append(RuntimeNode(node_id="resolve", role="agent", capability="resolve", contract_name="resolve.contract"))
+    graph = sequential_graph(graph_id=f"graph_{task.task_id}", steps=steps, artifact_prefix=f"artifact_{task.task_id}")
+    registry = ContractRegistry(
+        [
+            *(Contract(
+                name=f"tool.contract.{idx}",
+                capability=tool,
+                output_schema=TOOL_SCHEMA,
+                resource_budget=ResourceBudget(max_tool_calls=1, max_retries=max_retries),
+            ) for idx, tool in enumerate(candidate_tools)),
+            Contract(
+                name="resolve.contract",
+                capability="resolve",
+                output_schema=SCHEMA_HINT,
+                resource_budget=ResourceBudget(max_llm_calls=max_retries + 2, max_retries=max_retries, max_tokens=4096),
+            ),
+        ]
+    )
+    store = InMemoryArtifactStore()
+    scheduler = RuntimeScheduler(graph, store)
+    monitor = RuntimeMonitor(registry, store)
+    localizer = FaultLocalizer()
+    recovery = RecoveryController()
+    remaining_budget = {"retries": max_retries, "recovery_steps": max_retries + 1}
+    fault_plan = list(context.get("fault_plan") or [])
+
+    _log_event("graph.created", graph_id=graph.graph_id)
+    _log_event("contract.loaded", contracts=registry.names())
+
+    while not scheduler.is_finished():
+        runnable = scheduler.runnable_nodes()
+        if not runnable:
+            error = "runtime stalled before terminal node"
+            break
+        node = runnable[0]
+        attempts += 1
+        _log_event("node.started", node_id=node.node_id, attempt=attempts)
+        if use_monitor:
+            pre = monitor.before_node(task_id=task.task_id, graph=graph, node=node)
+            for violation in pre:
+                contract_violations += 1
+                _log_event("contract.violated", node_id=node.node_id, violation_type=violation.violation_type, message=violation.message)
+            if pre:
+                error = pre[0].message
+                scheduler.mark_failed(node.node_id)
+                break
+
+        if node.node_id != "resolve":
+            output = {"tool": node.capability, "status": "ok"}
+            tool_sequence.append(node.capability)
+            node_raw = json.dumps(output, ensure_ascii=False)
+            node_parsed = output
+        else:
+            result = client.chat(system=system, user=user, schema_hint=SCHEMA_HINT)
+            llm_stats.append(result.stats)
+            raw_text = result.content
+            parsed = result.parsed if result.error is None else None
+            resolve_attempts += 1
+            node_raw, node_parsed = _apply_planned_faults(
+                task=task,
+                method="adagentflow_rt",
+                phase="node",
+                attempt=resolve_attempts,
+                raw_text=raw_text,
+                parsed=parsed,
+                stressors=stressors,
+                fault_plan=fault_plan,
+                injected=injected,
+                log_event=_log_event,
+            )
+            raw_text, parsed = node_raw, node_parsed
+            output = node_parsed or {}
+
+        violations: List[ContractViolation] = []
+        if use_monitor:
+            violations = monitor.after_node(
+                task_id=task.task_id,
+                node=node,
+                output=output,
+                observed={
+                    "llm_calls": len(llm_stats) if node.node_id == "resolve" else 0,
+                    "tool_calls": 0 if node.node_id == "resolve" else 1,
+                    "tokens": sum(s.output_tokens for s in llm_stats) if node.node_id == "resolve" else 0,
+                },
+            )
+        else:
+            violations = []
+
+        if violations:
+            for violation in violations:
+                contract_violations += 1
+                _log_event("contract.violated", node_id=node.node_id, violation_type=violation.violation_type, message=violation.message)
+                diagnosis = localizer.diagnose(graph=graph, violation=violation) if use_localizer else None
+                if diagnosis is not None:
+                    _log_event("fault.localized", node_id=diagnosis.responsible_node, fault_class=diagnosis.fault_class)
+                decision = recovery.select(
+                    violation=violation,
+                    diagnosis=diagnosis or localizer.diagnose(graph=graph, violation=violation),
+                    remaining_budget=remaining_budget,
+                ) if use_recovery else None
+                if decision is None:
+                    error = violation.message
+                    scheduler.mark_failed(node.node_id)
+                    break
+                recovery_actions += 1
+                bounded_recovery_actions += 1
+                _log_event("recovery.selected", action=decision.action, node_id=node.node_id, reason=decision.reason)
+                _log_event("recovery.attempted", action=decision.action, node_id=node.node_id)
+                if decision.action == "quick_repair":
+                    repaired = _quick_repair_payload(output or {"content": node_raw}, schema_type="tool" if node.node_id != "resolve" else "resolve")
+                    retry_violations = monitor.after_node(
+                        task_id=task.task_id,
+                        node=node,
+                        output=repaired,
+                        observed={
+                            "llm_calls": len(llm_stats) if node.node_id == "resolve" else 0,
+                            "tool_calls": 0 if node.node_id == "resolve" else 1,
+                            "tokens": sum(s.output_tokens for s in llm_stats) if node.node_id == "resolve" else 0,
+                        },
+                    ) if use_monitor else []
+                    if retry_violations:
+                        _log_event("recovery.failed", action=decision.action, node_id=node.node_id)
+                        error = retry_violations[0].message
+                        scheduler.mark_failed(node.node_id)
+                        break
+                    output = repaired
+                elif decision.action in {"retry_same_agent", "reroute_agent", "rollback_to_checkpoint"} and remaining_budget["retries"] > 0:
+                    remaining_budget["retries"] -= 1
+                    if node.node_id == "resolve":
+                        retry = client.chat(
+                            system=system + "\n\nPrevious attempt violated the runtime contract. Return corrected JSON only.",
+                            user=user,
+                            schema_hint=SCHEMA_HINT,
+                        )
+                        llm_stats.append(retry.stats)
+                        resolve_attempts += 1
+                        raw_text, parsed = _apply_planned_faults(
+                            task=task,
+                            method="adagentflow_rt",
+                            phase="node",
+                            attempt=resolve_attempts,
+                            raw_text=retry.content,
+                            parsed=retry.parsed if retry.error is None else None,
+                            stressors=stressors,
+                            fault_plan=fault_plan,
+                            injected=injected,
+                            log_event=_log_event,
+                        )
+                        output = parsed or {}
+                    else:
+                        output = {"tool": node.capability, "status": "ok"}
+                    retry_violations = monitor.after_node(
+                        task_id=task.task_id,
+                        node=node,
+                        output=output,
+                        observed={
+                            "llm_calls": len(llm_stats) if node.node_id == "resolve" else 0,
+                            "tool_calls": 0 if node.node_id == "resolve" else 1,
+                            "tokens": sum(s.output_tokens for s in llm_stats) if node.node_id == "resolve" else 0,
+                        },
+                    ) if use_monitor else []
+                    if retry_violations:
+                        _log_event("recovery.failed", action=decision.action, node_id=node.node_id)
+                        error = retry_violations[0].message
+                        scheduler.mark_failed(node.node_id)
+                        break
+                else:
+                    _log_event("recovery.failed", action=decision.action, node_id=node.node_id)
+                    error = f"terminal recovery action: {decision.action}"
+                    scheduler.mark_failed(node.node_id)
+                    break
+                recovered = True
+                _log_event("recovery.succeeded", action=decision.action, node_id=node.node_id)
+            if node.node_id in scheduler.failed:
+                break
+
+        artifact = Artifact(
+            artifact_id=node.outputs[0] if node.outputs else f"artifact_{node.node_id}",
+            producer_node=node.node_id,
+            content=output,
+            contract_name=node.contract_name,
+            validation_status="valid",
+        )
+        store.put(artifact)
+        scheduler.mark_completed(node.node_id)
+        if node.node_id == "resolve":
+            if use_monitor:
+                raw_text, parsed = _normalize_result_payload(raw_text or node_raw, output if isinstance(output, dict) else None)
+            else:
+                raw_text, parsed = node_raw, node_parsed
+
+    native = _evaluate_native_metrics(task_payload=task_payload, raw_text=raw_text, tool_sequence=tool_sequence)
+    success_native = bool(native.get("task_success"))
+    dead_letter = (not success_native) or (not _final_contract_satisfied(parsed)) or bool(error)
+    success = bool(success_native and not dead_letter)
+    if recovered and success:
+        _log_event("recovery.succeeded", action="finalized", node_id="resolve")
+    elif recovery_actions:
+        _log_event("recovery.failed", action="finalized", node_id="resolve")
+    _log_event("task.finalized", success=success, dead_letter=dead_letter)
+    if dead_letter and error is None:
+        error = "contract recovery failed"
+    assert not (success and dead_letter)
+    return _build_runtime_result(
+        task=task,
+        method="adagentflow_rt",
+        run_id=run_id,
+        success=success,
+        native=native,
+        llm_stats=llm_stats,
+        tool_sequence=tool_sequence,
+        injected_faults=injected,
+        attempts=attempts,
+        recovered=bool(recovered and success),
+        dead_letter=dead_letter,
+        ablation=ablation,
+        events=events,
+        contract_violations=contract_violations,
+        recovery_actions=recovery_actions,
+        bounded_recovery_actions=bounded_recovery_actions,
+        error=error,
+    )
+
+
 def evaluate_task(
     *,
     task: Any,
     method: str,
     seed: int,
+    context: Optional[Dict[str, Any]] = None,
     stressors: List[Any],
     runtime_config: Dict[str, Any],
 ) -> RuntimeResult:
-    """Run a single task through the LLM-backed harness."""
+    if method == "adagentflow_rt":
+        return _evaluate_with_runtime_kernel(
+            task=task,
+            seed=seed,
+            stressors=stressors,
+            runtime_config=runtime_config,
+            context=context or {},
+        )
+
     run_id = f"run_{uuid4().hex}"
     ablation = runtime_config.get("ablation")
     task_payload = task.payload or {}
     candidate_tools = list(task_payload.get("tools") or ["lookup", "act", "respond"])
     system, user = _prompt_for_task(task_payload)
+    fault_plan = list((context or {}).get("fault_plan") or [])
     injected: List[Dict[str, Any]] = []
     llm_stats: List[LLMCallStats] = []
     tool_sequence: List[str] = []
     events: List[Dict[str, Any]] = []
     contract_violations = 0
     recovery_actions = 0
+    bounded_recovery_actions = 0
     attempts = 0
     parsed: Optional[Dict[str, Any]] = None
     raw_text = ""
-    recovered = False
     error: Optional[str] = None
-    success = False
-
-    use_schema_check = method in {"schema_only", "adagentflow_rt"}
-    use_recovery = method == "adagentflow_rt" and ablation != "without_bounded_recovery"
-    use_localizer = method == "adagentflow_rt" and ablation != "without_fault_localizer"
-    use_monitor = method == "adagentflow_rt" and ablation != "without_contract_monitor"
-    use_event_trace = method == "adagentflow_rt" and ablation != "without_event_trace"
-    # Ablating the contract monitor also disables the schema-only repair
-    if method == "adagentflow_rt" and ablation == "without_contract_monitor":
-        use_schema_check = False
-    max_retries = int(runtime_config.get("max_retries", 2))
-    if method == "vanilla":
-        max_retries = 0
-    if method == "retry_only":
-        use_schema_check = False
-        use_recovery = False
-        use_localizer = False
-        use_monitor = False
-        use_event_trace = False
-
+    use_schema_check = method == "schema_only"
+    max_retries = 0 if method == "vanilla" else int(runtime_config.get("max_retries", 2))
     client = SyncLLMClient(method=method, seed=seed)
 
     def _log_event(event_type: str, **payload: Any) -> None:
-        if not use_event_trace:
-            return
-        events.append({"event_type": event_type, "payload": payload})
-
-    def _inject_stressors(phase: str, call_obj: Dict[str, Any]) -> None:
-        for stressor in stressors:
-            event = {"task_id": task.task_id, "method": method, "phase": phase}
-            if stressor.should_inject(event):
-                fault = stressor.apply(call_obj)
-                injected.append(fault)
-                _log_event("fault.injected", stressor=stressor.name)
+        if method == "schema_only":
+            events.append({"event_type": event_type, "payload": payload})
 
     max_loops = max(1, max_retries + 1)
     for loop_idx in range(max_loops):
         attempts += 1
-        _log_event("node.started", attempt=loop_idx + 1)
-        # Apply stressors to the LLM output *after* the call (so the monitor
-        # actually sees the drift, partial response, etc.)
         result = client.chat(system=system, user=user, schema_hint=SCHEMA_HINT)
         llm_stats.append(result.stats)
         raw_text = result.content
         parsed = result.parsed if result.error is None else None
-        if parsed is not None:
-            # Stressors that mutate the output (schema_drift, stale_context, etc.)
-            _inject_stressors(phase="node", call_obj=parsed)
-            if not isinstance(parsed, dict):
-                parsed = None  # stressor may have wiped structure
-
-        if use_monitor and candidate_tools:
-            tool_sequence.append(candidate_tools[min(loop_idx, len(candidate_tools) - 1)])
-
-        violations = _detect_violations(parsed, raw_text) if (use_monitor or use_schema_check) else []
+        raw_text, parsed = _apply_planned_faults(
+            task=task,
+            method=method,
+            phase="node",
+            attempt=attempts,
+            raw_text=raw_text,
+            parsed=parsed,
+            stressors=stressors,
+            fault_plan=fault_plan,
+            injected=injected,
+            log_event=_log_event,
+        )
+        violations = _detect_violations(parsed, raw_text) if use_schema_check else []
         contract_violations += len(violations)
-        for v in violations:
-            _log_event("contract.violated", violation_type=v["type"], message=v["message"])
-
-        # Schema-only: rapid repair
         if use_schema_check and any(v["type"] == "SCHEMA_VIOLATION" for v in violations):
             repair = client.chat(
                 system="You fix JSON output to match the schema exactly.",
@@ -297,78 +640,26 @@ def evaluate_task(
                 schema_hint=SCHEMA_HINT,
             )
             llm_stats.append(repair.stats)
-            parsed = repair.parsed
-            raw_text = repair.content
+            raw_text, parsed = _normalize_result_payload(repair.content, repair.parsed if repair.error is None else None)
             recovery_actions += 1
-            _log_event("recovery.selected", action="quick_repair")
-
-        # Recovery controller (adagentflow_rt)
-        if use_recovery and violations:
-            if use_localizer:
-                _log_event("fault.localized", node_id="resolve")
-            for v in violations:
-                action = "retry_same_agent" if v["type"] == "SCHEMA_VIOLATION" else "reroute_agent"
-                _log_event("recovery.started", action=action, violation=v["type"])
-                retry_result = client.chat(
-                    system=system + "\n\nPrevious attempt was rejected. Produce a corrected answer.",
-                    user=user,
-                    schema_hint=SCHEMA_HINT,
-                )
-                llm_stats.append(retry_result.stats)
-                raw_text = retry_result.content
-                parsed = retry_result.parsed
-                recovery_actions += 1
-                _log_event("recovery.succeeded", action=action)
-
-        # retry-only: simple retry on transport/json failure
-        if method == "retry_only" and (parsed is None) and loop_idx < max_loops - 1:
+            _log_event("recovery.attempted", action="quick_repair")
+        if method == "retry_only" and parsed is None and loop_idx < max_loops - 1:
             continue
         break
 
-    # Vanilla: simple, no recovery, no schema check. Mark dead_letter if json broken.
     if method == "vanilla" and parsed is None:
         second = client.chat(system="Answer the customer request in plain text.", user=user)
         llm_stats.append(second.stats)
         raw_text = second.content
 
-    if not tool_sequence:
-        tool_sequence = _extract_tools_from_text(raw_text, candidate_tools)
-    if not tool_sequence and candidate_tools:
-        tool_sequence = [candidate_tools[0]]
-
-    scenario = _payload_to_scenario(task_payload)
-    if task_payload.get("adapter_mode") == "external" or task_payload.get("policy_text"):
-        # Real benchmark task: use the external scorer
-        native = evaluate_external(
-            task=_payload_to_external_task(task_payload),
-            generated_text=raw_text,
-            tool_sequence=tool_sequence,
-        )
-    else:
-        native = evaluate_native(
-            task=scenario,
-            generated_text=raw_text,
-            generated_actions=[],
-            tool_sequence=tool_sequence,
-        )
-
+    tool_sequence = _extract_tools_from_text(raw_text, candidate_tools)
+    native = _evaluate_native_metrics(task_payload=task_payload, raw_text=raw_text, tool_sequence=tool_sequence)
     success_native = bool(native.get("task_success"))
-    if method == "vanilla":
-        success = bool(parsed is not None)  # vanilla self-reports success even on off-policy output
-    else:
-        success = success_native
-
-    if method == "vanilla" and not success_native:
-        error = "vanilla: off-policy / json failure"
-        dead_letter = True
-    elif not success:
-        error = "contract recovery failed"
-        dead_letter = True
-    else:
-        error = None
-        dead_letter = False
-    recovered = bool(contract_violations > 0 and success_native and method == "adagentflow_rt")
-
+    dead_letter = not success_native
+    success = bool(success_native and not dead_letter)
+    if dead_letter:
+        error = "contract recovery failed" if method != "vanilla" else "vanilla: off-policy / json failure"
+    assert not (success and dead_letter)
     return _build_runtime_result(
         task=task,
         method=method,
@@ -379,11 +670,12 @@ def evaluate_task(
         tool_sequence=tool_sequence,
         injected_faults=injected,
         attempts=attempts,
-        recovered=recovered,
+        recovered=False,
         dead_letter=dead_letter,
         ablation=ablation,
         events=events,
         contract_violations=contract_violations,
         recovery_actions=recovery_actions,
+        bounded_recovery_actions=bounded_recovery_actions,
         error=error,
     )

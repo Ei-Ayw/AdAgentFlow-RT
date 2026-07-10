@@ -71,7 +71,7 @@ ablation,benchmark,domain,method,metric,value
 ,tau3,airline,schema_only,dead_letter_rate,1.0
 ,tau3,airline,vanilla,recovery_success_rate,0.0
 ,tau3,airline,vanilla,dead_letter_rate,1.0
-,tau3,airline,adagentflow_rt,recovery_success_rate,0.08333333333333333
+,tau3,airline,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,airline,adagentflow_rt,dead_letter_rate,0.9166666666666666
 ,tau3,airline,retry_only,recovery_success_rate,0.0
 ,tau3,airline,retry_only,dead_letter_rate,1.0
@@ -79,7 +79,7 @@ ablation,benchmark,domain,method,metric,value
 ,tau3,airline,schema_only,dead_letter_rate,1.0
 ,tau3,airline,vanilla,recovery_success_rate,0.0
 ,tau3,airline,vanilla,dead_letter_rate,1.0
-,tau3,airline,adagentflow_rt,recovery_success_rate,0.16666666666666666
+,tau3,airline,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,airline,adagentflow_rt,dead_letter_rate,0.8333333333333334
 ,tau3,airline,retry_only,recovery_success_rate,0.0
 ,tau3,airline,retry_only,dead_letter_rate,1.0
@@ -91,11 +91,11 @@ without_bounded_recovery,tau3,airline,adagentflow_rt,recovery_success_rate,0.0
 without_bounded_recovery,tau3,airline,adagentflow_rt,dead_letter_rate,1.0
 without_contract_monitor,tau3,airline,adagentflow_rt,recovery_success_rate,0.0
 without_contract_monitor,tau3,airline,adagentflow_rt,dead_letter_rate,1.0
-without_event_trace,tau3,airline,adagentflow_rt,recovery_success_rate,0.08333333333333333
+without_event_trace,tau3,airline,adagentflow_rt,recovery_success_rate,0.0
 without_event_trace,tau3,airline,adagentflow_rt,dead_letter_rate,0.9166666666666666
 without_fault_localizer,tau3,airline,adagentflow_rt,recovery_success_rate,0.0
 without_fault_localizer,tau3,airline,adagentflow_rt,dead_letter_rate,1.0
-,tau3,airline,adagentflow_rt,recovery_success_rate,0.08333333333333333
+,tau3,airline,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,airline,adagentflow_rt,dead_letter_rate,0.9166666666666666
 ,tau3,airline,retry_only,recovery_success_rate,0.0
 ,tau3,airline,retry_only,dead_letter_rate,1.0
@@ -103,7 +103,7 @@ without_fault_localizer,tau3,airline,adagentflow_rt,dead_letter_rate,1.0
 ,tau3,airline,schema_only,dead_letter_rate,1.0
 ,tau3,airline,vanilla,recovery_success_rate,0.0
 ,tau3,airline,vanilla,dead_letter_rate,1.0
-,tau3,airline,adagentflow_rt,recovery_success_rate,0.08333333333333333
+,tau3,airline,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,airline,adagentflow_rt,dead_letter_rate,0.9166666666666666
 ,tau3,airline,retry_only,recovery_success_rate,0.0
 ,tau3,airline,retry_only,dead_letter_rate,1.0
@@ -151,7 +151,7 @@ without_event_trace,tau3,retail,adagentflow_rt,recovery_success_rate,0.0
 without_event_trace,tau3,retail,adagentflow_rt,dead_letter_rate,1.0
 without_fault_localizer,tau3,retail,adagentflow_rt,recovery_success_rate,0.0
 without_fault_localizer,tau3,retail,adagentflow_rt,dead_letter_rate,1.0
-,tau3,retail,adagentflow_rt,recovery_success_rate,0.08333333333333333
+,tau3,retail,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,retail,adagentflow_rt,dead_letter_rate,0.9166666666666666
 ,tau3,retail,retry_only,recovery_success_rate,0.0
 ,tau3,retail,retry_only,dead_letter_rate,1.0
@@ -175,7 +175,7 @@ without_fault_localizer,tau3,retail,adagentflow_rt,dead_letter_rate,1.0
 ,tau3,retail,schema_only,dead_letter_rate,1.0
 ,tau3,retail,vanilla,recovery_success_rate,0.0
 ,tau3,retail,vanilla,dead_letter_rate,1.0
-,tau3,telecom,adagentflow_rt,recovery_success_rate,0.3333333333333333
+,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,telecom,adagentflow_rt,dead_letter_rate,0.6666666666666666
 ,tau3,telecom,retry_only,recovery_success_rate,0.0
 ,tau3,telecom,retry_only,dead_letter_rate,0.75
@@ -183,7 +183,7 @@ without_fault_localizer,tau3,retail,adagentflow_rt,dead_letter_rate,1.0
 ,tau3,telecom,schema_only,dead_letter_rate,0.5833333333333334
 ,tau3,telecom,vanilla,recovery_success_rate,0.0
 ,tau3,telecom,vanilla,dead_letter_rate,1.0
-,tau3,telecom,adagentflow_rt,recovery_success_rate,0.5833333333333334
+,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,telecom,adagentflow_rt,dead_letter_rate,0.4166666666666667
 ,tau3,telecom,retry_only,recovery_success_rate,0.0
 ,tau3,telecom,retry_only,dead_letter_rate,0.75
@@ -191,7 +191,7 @@ without_fault_localizer,tau3,retail,adagentflow_rt,dead_letter_rate,1.0
 ,tau3,telecom,schema_only,dead_letter_rate,0.6666666666666666
 ,tau3,telecom,vanilla,recovery_success_rate,0.0
 ,tau3,telecom,vanilla,dead_letter_rate,1.0
-,tau3,telecom,adagentflow_rt,recovery_success_rate,0.16666666666666666
+,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,telecom,adagentflow_rt,dead_letter_rate,0.8333333333333334
 ,tau3,telecom,retry_only,recovery_success_rate,0.0
 ,tau3,telecom,retry_only,dead_letter_rate,0.75
@@ -199,15 +199,15 @@ without_fault_localizer,tau3,retail,adagentflow_rt,dead_letter_rate,1.0
 ,tau3,telecom,schema_only,dead_letter_rate,0.3333333333333333
 ,tau3,telecom,vanilla,recovery_success_rate,0.0
 ,tau3,telecom,vanilla,dead_letter_rate,1.0
-without_bounded_recovery,tau3,telecom,adagentflow_rt,recovery_success_rate,0.3333333333333333
+without_bounded_recovery,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 without_bounded_recovery,tau3,telecom,adagentflow_rt,dead_letter_rate,0.6666666666666666
 without_contract_monitor,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 without_contract_monitor,tau3,telecom,adagentflow_rt,dead_letter_rate,0.75
-without_event_trace,tau3,telecom,adagentflow_rt,recovery_success_rate,0.4166666666666667
+without_event_trace,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 without_event_trace,tau3,telecom,adagentflow_rt,dead_letter_rate,0.5833333333333334
-without_fault_localizer,tau3,telecom,adagentflow_rt,recovery_success_rate,0.16666666666666666
+without_fault_localizer,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 without_fault_localizer,tau3,telecom,adagentflow_rt,dead_letter_rate,0.8333333333333334
-,tau3,telecom,adagentflow_rt,recovery_success_rate,0.4166666666666667
+,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,telecom,adagentflow_rt,dead_letter_rate,0.5833333333333334
 ,tau3,telecom,retry_only,recovery_success_rate,0.0
 ,tau3,telecom,retry_only,dead_letter_rate,0.75
@@ -215,7 +215,7 @@ without_fault_localizer,tau3,telecom,adagentflow_rt,dead_letter_rate,0.833333333
 ,tau3,telecom,schema_only,dead_letter_rate,0.5
 ,tau3,telecom,vanilla,recovery_success_rate,0.0
 ,tau3,telecom,vanilla,dead_letter_rate,1.0
-,tau3,telecom,adagentflow_rt,recovery_success_rate,0.5
+,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,telecom,adagentflow_rt,dead_letter_rate,0.5
 ,tau3,telecom,retry_only,recovery_success_rate,0.0
 ,tau3,telecom,retry_only,dead_letter_rate,0.5833333333333334
@@ -223,7 +223,7 @@ without_fault_localizer,tau3,telecom,adagentflow_rt,dead_letter_rate,0.833333333
 ,tau3,telecom,schema_only,dead_letter_rate,0.5833333333333334
 ,tau3,telecom,vanilla,recovery_success_rate,0.0
 ,tau3,telecom,vanilla,dead_letter_rate,1.0
-,tau3,telecom,adagentflow_rt,recovery_success_rate,0.16666666666666666
+,tau3,telecom,adagentflow_rt,recovery_success_rate,0.0
 ,tau3,telecom,adagentflow_rt,dead_letter_rate,0.8333333333333334
 ,tau3,telecom,retry_only,recovery_success_rate,0.0
 ,tau3,telecom,retry_only,dead_letter_rate,0.6666666666666666

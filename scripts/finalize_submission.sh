@@ -18,6 +18,10 @@ GPU_USER="root"
 MATRIX_DIR="${MATRIX_DIR:-/root/experiments/results/real_full_v2}"
 LOCAL_DIR="experiments/results/main/real_full_v2"
 SUPP_ZIP="supplementary/aamas2026_supplementary.zip"
+CONTROLLED_DIR="${LOCAL_DIR}/controlled_fault"
+REFERENCE_SET="${LOCAL_DIR}/reference_set.jsonl"
+TAU3_TASKS="data/external/tau2-bench/data/tau2/domains/airline/tasks.json"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 usage() {
   cat <<EOF
@@ -52,14 +56,37 @@ else
 fi
 
 echo "[2/5] Aggregating + refreshing paper artifacts"
-.venv/bin/python -m experiments.harness.aggregate_suite \
+"${PYTHON_BIN}" -m experiments.harness.aggregate_suite \
   --suite-dir "${LOCAL_DIR}" \
   --json-output "${LOCAL_DIR}/summary.json"
-.venv/bin/python -m experiments.harness.refresh_paper_artifacts \
+"${PYTHON_BIN}" -m experiments.harness.refresh_paper_artifacts \
   --summary "${LOCAL_DIR}/summary.json"
+"${PYTHON_BIN}" -m experiments.harness.aggregate_paper_table \
+  --summary "${LOCAL_DIR}/summary.json"
+"${PYTHON_BIN}" -m experiments.harness.build_evidence_status
+if [[ -f "${TAU3_TASKS}" ]]; then
+  if [[ ! -f "${REFERENCE_SET}" ]]; then
+    "${PYTHON_BIN}" -m experiments.harness.build_reference_set \
+      --smoke-dir "${LOCAL_DIR}" \
+      --output "${REFERENCE_SET}" \
+      --include-methods adagentflow_rt schema_only retry_only vanilla || true
+  fi
+  if [[ -f "${REFERENCE_SET}" && ! -d "${CONTROLLED_DIR}" ]]; then
+    "${PYTHON_BIN}" -m experiments.harness.controlled_fault_injection \
+      --reference-set "${REFERENCE_SET}" \
+      --output-dir "${CONTROLLED_DIR}" || true
+  fi
+  if [[ -d "${CONTROLLED_DIR}" ]]; then
+    "${PYTHON_BIN}" -m experiments.harness.aggregate_controlled_fault \
+      --input-dir "${CONTROLLED_DIR}" \
+      --output "paper/aamas2026/tables/controlled_fault_table.csv" || true
+  fi
+else
+  echo "controlled-fault skipped: external benchmark fixtures not present under data/external/"
+fi
 
 echo "[3/5] Audit gate"
-.venv/bin/python -m experiments.harness.audit_results \
+"${PYTHON_BIN}" -m experiments.harness.audit_results \
   --summary "${LOCAL_DIR}/summary.json" \
   --require-external-main --require-agentchange \
   --json-output "${LOCAL_DIR}/audit.json"
@@ -74,11 +101,13 @@ if command -v zip >/dev/null 2>&1; then
     paper/aamas2026/tables/ \
     paper/aamas2026/figs/ \
     docs/aamas/ \
+    docs/contracts/ \
     "${LOCAL_DIR}/" \
     app/contracts/ \
     app/runtime/ \
     app/services/llm_client.py \
     experiments/harness/ \
+    scripts/finalize_submission.sh \
     requirements.txt \
     supplementary/README.md \
   )

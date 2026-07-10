@@ -1,0 +1,11 @@
+method,stressor,n_tasks,containment_rate,bounded_recovery_used_rate,final_runtime_success_rate,final_fixture_success_rate,over_rejection_rate,mean_contaminated_artifact_count,mean_delta_contaminated_artifact_count
+adagentflow_rt,duplicate_message,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+adagentflow_rt,partial_response,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+adagentflow_rt,schema_drift,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+adagentflow_rt,stale_context,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+adagentflow_rt,tool_timeout,1,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+retry_only,duplicate_message,7,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+retry_only,partial_response,7,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+retry_only,schema_drift,7,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+retry_only,stale_context,7,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+retry_only,tool_timeout,7,0.0,0.0,0.0,0.0,0.0,0.0,0.0

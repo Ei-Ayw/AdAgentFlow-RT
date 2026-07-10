@@ -21,7 +21,6 @@ FIGURES = {
     "latency_vs_concurrency.pdf": "P95 latency vs concurrency",
     "recovery_vs_fault_rate.pdf": "Recovery and dead-letter rate vs fault rate",
     "cost_per_success.pdf": "Cost per successful task under fault injection",
-    "agentchange_recovery.pdf": "AgentChangeBench GSRT and TCRR comparison",
     "ablation_study.pdf": "Ablation study",
 }
 
@@ -82,7 +81,6 @@ def build_figure_rows(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, An
         "latency_vs_concurrency": _metric_rows(rows, "p95_latency_ms"),
         "recovery_vs_fault_rate": _combined_metric_rows(rows, ["recovery_success_rate", "dead_letter_rate"]),
         "cost_per_success": _metric_rows(rows, "cost_per_successful_task"),
-        "agentchange_recovery": _combined_metric_rows(rows, ["GSRT", "TCRR", "recovery_success_rate"], benchmark="agentchange"),
         "ablation_study": _ablation_rows(rows),
     }
 
@@ -166,13 +164,45 @@ def _combined_metric_rows(rows: List[Dict[str, Any]], metrics: List[str], benchm
 
 
 def _ablation_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return [
+    filtered = [
         row
         for row in rows
-        if row.get("method") in {"adagentflow_rt", "retry_only"} and (
-            row.get("ablation") is not None or row.get("method") == "retry_only"
+        if row.get("benchmark") in {"tau3", "mock"}
+        and (row.get("fault_rate") in (None, 0.2))
+        and (row.get("max_concurrency") in (None, 1))
+        and row.get("method") in {"adagentflow_rt", "retry_only"}
+        and (
+            row.get("method") == "retry_only"
+            or row.get("ablation") is not None
+            or row.get("method") == "adagentflow_rt"
         )
     ]
+    grouped: Dict[tuple[str, str], List[Dict[str, Any]]] = {}
+    for row in filtered:
+        key = (str(row.get("method") or ""), str(row.get("ablation") or ""))
+        grouped.setdefault(key, []).append(row)
+
+    aggregated: List[Dict[str, Any]] = []
+    for (method, ablation), group in sorted(grouped.items()):
+        total_tasks = sum(int(row.get("total_tasks") or 1) for row in group)
+        if total_tasks <= 0:
+            continue
+
+        def weighted(field: str) -> float:
+            return sum(float(row.get(field) or 0.0) * int(row.get("total_tasks") or 1) for row in group) / total_tasks
+
+        aggregated.append(
+            {
+                "method": method,
+                "ablation": ablation or None,
+                "task_success_rate": weighted("task_success_rate"),
+                "dead_letter_rate": weighted("dead_letter_rate"),
+                "recovery_success_rate": weighted("recovery_success_rate"),
+                "silent_failure_rate": weighted("silent_failure_rate"),
+                "mean_time_to_recover_ms": weighted("mean_time_to_recover_ms"),
+            }
+        )
+    return aggregated
 
 
 def write_figure_pdf(path: Path, stem: str, title: str, rows: List[Dict[str, Any]]) -> None:
@@ -198,7 +228,6 @@ def write_figure_pdf(path: Path, stem: str, title: str, rows: List[Dict[str, Any
         "cost_per_success": lambda ax, data, heading: _plot_metric_bars(
             ax, data, heading, ylabel="Cost per successful task"
         ),
-        "agentchange_recovery": _plot_agentchange,
         "ablation_study": _plot_ablation,
     }
     plotter = plotters.get(stem, _plot_table_summary)

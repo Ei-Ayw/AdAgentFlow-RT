@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 from experiments.harness.export_paper_tables import (
-    AGENTCHANGE_FIELDS,
     MAIN_FIELDS,
     RUNTIME_FIELDS,
+    aggregate_runtime_rows,
     load_summaries,
     write_failure_breakdown,
     write_table,
@@ -57,13 +57,11 @@ def write_paper_tables(table_dir: Path, rows: List[Dict[str, Any]]) -> List[Path
     outputs = [
         table_dir / "main_tau3_results.csv",
         table_dir / "runtime_stability_metrics.csv",
-        table_dir / "agentchange_recovery_metrics.csv",
         table_dir / "failure_recovery_breakdown.csv",
     ]
     write_table(outputs[0], [row for row in rows if row.get("benchmark") in {"tau3", "mock"}], MAIN_FIELDS)
-    write_table(outputs[1], rows, RUNTIME_FIELDS)
-    write_table(outputs[2], [row for row in rows if row.get("benchmark") == "agentchange"], AGENTCHANGE_FIELDS)
-    write_failure_breakdown(outputs[3], rows)
+    write_table(outputs[1], aggregate_runtime_rows(rows), RUNTIME_FIELDS)
+    write_failure_breakdown(outputs[2], rows)
     return outputs
 
 

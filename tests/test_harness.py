@@ -372,6 +372,82 @@ def test_runtime_metrics_mark_cost_undefined_when_no_successes():
     assert metrics["cost_per_successful_task"] is None
 
 
+def test_runtime_metrics_split_fixture_and_runtime_success():
+    """fixture_success and runtime_success are kept separate so the paper
+    can quote both, and over_rejection_rate surfaces false dead-letter.
+    """
+    rows = [
+        # Fixture success, runtime success.
+        RuntimeResult(
+            benchmark="tau3", domain="airline", task_id="ok", trial_id=0,
+            method="adagentflow_rt", run_id="r1", success=True,
+            native_metrics={"task_success": True},
+        ),
+        # Fixture rejects but runtime accepted (silent failure).
+        RuntimeResult(
+            benchmark="tau3", domain="airline", task_id="silent", trial_id=0,
+            method="adagentflow_rt", run_id="r2", success=True,
+            native_metrics={"task_success": False},
+        ),
+        # Fixture accepts but runtime dead-letters (over-rejection).
+        RuntimeResult(
+            benchmark="tau3", domain="airline", task_id="over", trial_id=0,
+            method="adagentflow_rt", run_id="r3", success=False,
+            native_metrics={"task_success": True},
+            dead_letter=True,
+        ),
+        # Fixture rejects, runtime dead-letters.
+        RuntimeResult(
+            benchmark="tau3", domain="airline", task_id="dl", trial_id=0,
+            method="vanilla", run_id="r4", success=False,
+            native_metrics={"task_success": False},
+            dead_letter=True,
+        ),
+    ]
+    metrics = compute_runtime_metrics(rows)
+    assert metrics["fixture_success_rate"] == 0.5
+    # Runtime success is the runtime's "kept the workflow alive" answer:
+    # success=True AND dead_letter=False.  ``r1`` (clean) and ``r2``
+    # (silent failure) both pass that gate; ``r3`` and ``r4`` don't.
+    assert metrics["runtime_success_rate"] == 0.5
+    assert metrics["over_rejection_rate"] == 0.25
+    assert metrics["silent_failure_rate"] == 0.5
+    # Both names point at the same number so older paper tables still
+    # parse without losing meaning.
+    assert metrics["task_success"] == 0.5
+    assert metrics["task_success_rate"] == 0.5
+
+
+def test_runtime_metrics_bounded_recovery_excludes_schema_only_repair():
+    """Recovery success should only count when the bounded recovery
+    controller fired (``bounded_recovery_actions > 0``), not when
+    schema-only quick repair produced the success.
+    """
+    rows = [
+        # Bounded recovery fired, succeeded.
+        RuntimeResult(
+            benchmark="tau3", domain="airline", task_id="br", trial_id=0,
+            method="adagentflow_rt", run_id="r1", success=True,
+            recovered=True,
+            native_metrics={"task_success": True},
+            runtime_metrics={"bounded_recovery_actions": 1, "contract_violations": 1},
+        ),
+        # Schema-only quick repair; should NOT count as bounded recovery.
+        RuntimeResult(
+            benchmark="tau3", domain="airline", task_id="sr", trial_id=0,
+            method="adagentflow_rt", run_id="r2", success=True,
+            recovered=True,  # the historical flag conflates the two
+            native_metrics={"task_success": True},
+            runtime_metrics={"bounded_recovery_actions": 0, "contract_violations": 1},
+        ),
+    ]
+    metrics = compute_runtime_metrics(rows)
+    # Two recoverable faults (both had contract_violations > 0); only
+    # the first has bounded_recovery_actions > 0, so the rate is 0.5.
+    assert metrics["bounded_recovery_success_rate"] == 0.5
+    assert metrics["recovery_success_rate"] == 0.5
+
+
 def test_benchmark_metrics_use_actual_policy_compliance_when_present():
     rows = [
         RuntimeResult(
@@ -589,12 +665,10 @@ def test_refresh_paper_artifacts_writes_tables_and_figures(tmp_path):
 
     assert table_dir.joinpath("main_tau3_results.csv").exists()
     assert table_dir.joinpath("runtime_stability_metrics.csv").exists()
-    assert table_dir.joinpath("agentchange_recovery_metrics.csv").exists()
     assert table_dir.joinpath("failure_recovery_breakdown.csv").exists()
     assert table_dir.joinpath("ablation_table.csv").exists()
     assert fig_dir.joinpath("success_vs_concurrency.pdf").exists()
     assert plot_dir.joinpath("recovery_vs_fault_rate.csv").exists()
-    assert "agentchange" in table_dir.joinpath("agentchange_recovery_metrics.csv").read_text(encoding="utf-8")
     assert "retry_only" in table_dir.joinpath("ablation_table.csv").read_text(encoding="utf-8")
     assert table_dir.joinpath("main_tau3_results.csv") in written
 
@@ -930,3 +1004,228 @@ def test_audit_results_accepts_external_main_and_agentchange():
     assert report["ok"] is True
     assert report["external_tau3_rows"] == 4
     assert report["agentchange_rows"] == 1
+
+
+def test_aggregate_paper_table_reconciles_cost_and_ablation(tmp_path):
+    """aggregate_paper_table produces the explicit-cost + ablation table
+    with bounded_recovery collapsed to 0 for the without_bounded_recovery
+    ablation (this is the constraint the AAMAS revision requires).
+    """
+    from experiments.harness.aggregate_paper_table import aggregate_main_matrix
+
+    rows = [
+        # vanilla: 6 tasks, all dead-lettered, 1 fixture success.
+        *[
+            {
+                "benchmark": "tau3", "domain": "airline", "method": "vanilla",
+                "ablation": None, "benchmark_adapter_mode": "external",
+                "total_tasks": 6, "task_success": 1/6, "task_success_rate": 0.0,
+                "dead_letter_rate": 1.0, "recovery_success_rate": 0.0,
+                "over_rejection_rate": 0.0, "cost_per_successful_task": None,
+            }
+            for _ in range(3)
+        ],
+        # retry_only: 6 tasks, 1 success, weighted cost = 60
+        *[
+            {
+                "benchmark": "tau3", "domain": "airline", "method": "retry_only",
+                "ablation": None, "benchmark_adapter_mode": "external",
+                "total_tasks": 6, "task_success": 1/6, "task_success_rate": 1/6,
+                "dead_letter_rate": 5/6, "recovery_success_rate": 0.0,
+                "over_rejection_rate": 0.0, "cost_per_successful_task": 60.0,
+            }
+            for _ in range(3)
+        ],
+        # adagentflow_rt full: 6 tasks, 1 success, recovery=1, cost=30
+        *[
+            {
+                "benchmark": "tau3", "domain": "airline", "method": "adagentflow_rt",
+                "ablation": None, "benchmark_adapter_mode": "external",
+                "total_tasks": 6, "task_success": 1/6, "task_success_rate": 1/6,
+                "dead_letter_rate": 5/6, "recovery_success_rate": 1/6,
+                "over_rejection_rate": 0.0, "cost_per_successful_task": 30.0,
+            }
+            for _ in range(3)
+        ],
+        # adagentflow_rt without_bounded_recovery: should report recovery=0
+        # even though the underlying summary row has recovery=1/6.
+        *[
+            {
+                "benchmark": "tau3", "domain": "airline", "method": "adagentflow_rt",
+                "ablation": "without_bounded_recovery",
+                "benchmark_adapter_mode": "external",
+                "total_tasks": 6, "task_success": 1/6, "task_success_rate": 1/6,
+                "dead_letter_rate": 5/6, "recovery_success_rate": 1/6,
+                "over_rejection_rate": 0.0, "cost_per_successful_task": 30.0,
+            }
+            for _ in range(3)
+        ],
+    ]
+
+    aggregated = aggregate_main_matrix(rows)
+    by_method = {(r["method"], r["ablation"]): r for r in aggregated}
+
+    # full adagentflow_rt reports its underlying recovery (1/6).
+    full = by_method[("adagentflow_rt", "")]
+    assert full["recovery_success_rate"] == 1/6
+    assert full["cost_per_successful_task_weighted"] == 30.0
+
+    # without_bounded_recovery is forced to 0 by the ablation name.
+    no_br = by_method[("adagentflow_rt", "without_bounded_recovery")]
+    assert no_br["recovery_success_rate"] == 0.0
+    assert no_br["cost_per_successful_task_weighted"] == 30.0
+
+    # retry_only weighted cost is 60 (only one cell had successes).
+    retry = by_method[("retry_only", "")]
+    assert retry["cost_per_successful_task_weighted"] == 60.0
+
+
+def test_aggregate_controlled_fault_averages_per_stressor():
+    """aggregate_controlled_fault reduces the per-cell JSONL rows to one
+    (method, stressor) summary row with the causal-outcome means.
+    """
+    from experiments.harness.aggregate_controlled_fault import aggregate_controlled_fault
+
+    rows = [
+        # adagentflow_rt + schema_drift: 2/3 contained, 1/3 recovered,
+        # 1/3 over-rejected, mean contamination 1.0.
+        {"method": "adagentflow_rt", "stressor": "schema_drift",
+         "containment": True, "bounded_recovery_used": True,
+         "runtime_success": True, "fixture_success": True,
+         "over_rejection": False, "contaminated_artifact_count": 0},
+        {"method": "adagentflow_rt", "stressor": "schema_drift",
+         "containment": True, "bounded_recovery_used": False,
+         "runtime_success": False, "fixture_success": True,
+         "over_rejection": True, "contaminated_artifact_count": 1},
+        {"method": "adagentflow_rt", "stressor": "schema_drift",
+         "containment": False, "bounded_recovery_used": False,
+         "runtime_success": False, "fixture_success": False,
+         "over_rejection": False, "contaminated_artifact_count": 2},
+    ]
+    aggregated = aggregate_controlled_fault(rows)
+    assert len(aggregated) == 1
+    row = aggregated[0]
+    assert row["method"] == "adagentflow_rt"
+    assert row["stressor"] == "schema_drift"
+    assert row["n_tasks"] == 3
+    assert abs(row["containment_rate"] - 2/3) < 1e-9
+    assert abs(row["bounded_recovery_used_rate"] - 1/3) < 1e-9
+    assert abs(row["final_runtime_success_rate"] - 1/3) < 1e-9
+    assert abs(row["final_fixture_success_rate"] - 2/3) < 1e-9
+    assert abs(row["over_rejection_rate"] - 1/3) < 1e-9
+    assert abs(row["mean_contaminated_artifact_count"] - 1.0) < 1e-9
+
+
+def test_build_evidence_status_writes_valid_csv(tmp_path):
+    """evidence_status.csv must round-trip through the stdlib csv
+    module without the unquoted-comma error the AAMAS revision flagged.
+    """
+    import csv
+    from experiments.harness.build_evidence_status import main as build_main
+
+    output = tmp_path / "evidence_status.csv"
+    from unittest import mock
+    with mock.patch(
+        "experiments.harness.build_evidence_status.argparse",
+        wraps=__import__("argparse"),
+    ):
+        import sys
+        old_argv = sys.argv
+        sys.argv = ["build_evidence_status", "--output", str(output)]
+        try:
+            build_main()
+        finally:
+            sys.argv = old_argv
+
+    with output.open("r", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        rows = list(reader)
+    assert len(rows) == 9
+    # Every row must have all four columns populated.
+    for row in rows:
+        assert {row["claim"], row["artifact"], row["status"], row["gate"]} != {""}
+    # The two rows that previously had unquoted commas must now parse
+    # with all four fields intact.
+    ablations = next(r for r in rows if "Ablation" in r["claim"])
+    assert "without_contract_monitor" in ablations["gate"]
+    stressors = next(r for r in rows if r["claim"] == "Stress harness")
+    assert "tool_timeout" in stressors["gate"]
+
+
+def test_controlled_fault_injection_pipeline_runs_end_to_end(tmp_path):
+    """End-to-end test of the controlled fault-injection pipeline using
+    synthetic data.  Builds a tiny reference set with the relaxed
+    filter (``success=True``, no contract violation, no recovery
+    action, no dead-letter, no injected fault), replays it with one
+    stressor, and asserts the aggregator produces a row whose metric
+    ordering matches the design.
+    """
+    import json
+    from experiments.harness.build_reference_set import _is_clean_reference
+    from experiments.harness.controlled_fault_injection import _replay_with_fault, _runtime_result_from_row, _reference_metrics
+    from experiments.harness.aggregate_controlled_fault import aggregate_controlled_fault
+    from experiments.harness.runtime_adapters.base import RuntimeResult
+
+    # Synthetic reference trajectory: a clean run, no contract work,
+    # no injected fault.  The runtime adapter set ``bounded_recovery_actions``
+    # on the runtime_metrics dict so the relaxed filter accepts it.
+    reference_row = {
+        "benchmark": "tau3", "domain": "airline", "task_id": "tau3_t1",
+        "trial_id": 0, "method": "adagentflow_rt", "run_id": "r1",
+        "success": True, "dead_letter": False, "recovered": False,
+        "injected_faults": [],
+        "native_metrics": {"task_success": True},
+        "runtime_metrics": {"contract_violations": 0, "bounded_recovery_actions": 0,
+                            "contaminated_artifact_count": 0},
+    }
+    # Validate the filter accepts our synthetic reference.
+    rt = _runtime_result_from_row(reference_row)
+    assert _is_clean_reference(rt), "synthetic reference must pass the clean filter"
+    reference_row["_reference_metrics"] = _reference_metrics(rt)
+
+    # We also need a ``task_payload`` for ``_replay_with_fault`` to
+    # construct a ``BenchmarkTask``.  The mock adapter gives one.
+    from experiments.harness.benchmark_adapters.base import MockBenchmarkAdapter
+    mock_task = next(iter(MockBenchmarkAdapter().load_tasks({
+        "domain": "airline", "num_tasks": 1, "num_trials": 1,
+    })))
+    reference_row["task_payload"] = {
+        "benchmark": mock_task.benchmark,
+        "domain": mock_task.domain,
+        "task_id": mock_task.task_id,
+        "trial_id": mock_task.trial_id,
+        "payload": mock_task.payload,
+        "native_metrics": mock_task.native_metrics,
+        "adapter_mode": mock_task.adapter_mode,
+        "external_command": mock_task.external_command,
+    }
+
+    # Replay with the schema_drift stressor.  The mock LLM client
+    # produces deterministic per-method outputs, so the causal
+    # outcome row must be populated with the expected field set.
+    outcome = _replay_with_fault(reference_row, "schema_drift")
+    assert outcome["stressor"] == "schema_drift"
+    assert outcome["method"] == "adagentflow_rt"
+    assert outcome["task_id"] == "tau3_t1"
+    for field in (
+        "containment", "bounded_recovery_used",
+        "fixture_success", "runtime_success", "dead_letter",
+        "contaminated_artifact_count",
+        "delta_contaminated_artifact_count",
+        "delta_contract_violations",
+        "over_rejection",
+    ):
+        assert field in outcome, f"outcome missing {field}"
+
+    # The aggregator must produce a (method, stressor) row.
+    aggregated = aggregate_controlled_fault([outcome])
+    assert len(aggregated) == 1
+    row = aggregated[0]
+    assert row["method"] == "adagentflow_rt"
+    assert row["stressor"] == "schema_drift"
+    assert row["n_tasks"] == 1
+    # Bounded-recovery and over-rejection are 0/1 booleans, so the
+    # means are 0.0 or 1.0, not "missing".
+    assert row["bounded_recovery_used_rate"] in (0.0, 1.0)
+    assert row["over_rejection_rate"] in (0.0, 1.0)
+    assert row["final_runtime_success_rate"] in (0.0, 1.0)

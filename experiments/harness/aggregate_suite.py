@@ -26,6 +26,8 @@ def main() -> None:
 def summarize_suite(suite_dir: Path):
     summaries = []
     for path in sorted(suite_dir.glob("*.jsonl")):
+        if path.name == "reference_set.jsonl" or path.name.startswith("controlled_"):
+            continue
         results = load_results(path)
         if not results:
             continue

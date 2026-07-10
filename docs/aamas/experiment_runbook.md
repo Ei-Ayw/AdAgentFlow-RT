@@ -279,7 +279,7 @@ This writes:
 
 - `paper/aamas2026/tables/main_tau3_results.csv`
 - `paper/aamas2026/tables/runtime_stability_metrics.csv`
-- `paper/aamas2026/tables/agentchange_recovery_metrics.csv`
+- AgentChangeBench rows remain in `summary.json` for audit coverage, but no standalone paper table is emitted for TCRR / GSRT in the current artifact.
 - `paper/aamas2026/tables/failure_recovery_breakdown.csv`
 - `paper/aamas2026/tables/ablation_table.csv`
 - `paper/aamas2026/figs/*.pdf`

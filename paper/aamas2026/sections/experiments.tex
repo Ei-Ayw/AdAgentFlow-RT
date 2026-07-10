@@ -7,7 +7,7 @@ We evaluate four runtime strategies (vanilla tool calling, retry-only, schema-on
 
 \subsection{Main Matrix}
 
-The main setting sweeps all four methods across the full task set:
+The main setting samples from three public task pools and evaluates all four methods under a matched matrix:
 \begin{itemize}
     \item \textbf{Domains}: \mbox{$\tau^3$}-bench \textit{airline} (50 tasks), \textit{retail} (114), \textit{telecom} (2{,}285); AgentChangeBench \textit{airline}, \textit{retail} (50 tasks each).
     \item \textbf{Concurrency}: 1, 5.
@@ -15,31 +15,37 @@ The main setting sweeps all four methods across the full task set:
     \item \textbf{Stressors}: tool timeout, partial response, schema drift, stale context, duplicate message.
     \item \textbf{Tasks per cell}: 6, \textbf{trials}: 2.
 \end{itemize}
-The full matrix produces 1{,}392 JSONL rows across 39 runs (84 \mbox{$\tau^3$}-bench summary rows + 32 AgentChangeBench summary rows = 116 total) in approximately four hours on a single Qwen3-8B endpoint.
+The full matrix produces 1{,}392 JSONL rows across 39 runs (84 \mbox{$\tau^3$}-bench summary rows + 32 AgentChangeBench summary rows = 116 total) in approximately four hours on a single Qwen3-8B endpoint. For the main \mbox{$\tau^3$}-bench table, each method contributes 216 sampled executions over 36 distinct task-trial instances; the same task-trial instances are reused across multiple concurrency and fault-rate cells, so the 216 rows should not be interpreted as 216 independent tasks.
 
 \subsection{Main Results}
 
-Table~\ref{tab:main} reports the per-method averages over the full \mbox{$\tau^3$}-bench main matrix, weighted by the number of tasks per cell. Vanilla tool calling produces no compliant completions against the live LLM and is therefore dead-lettered for every run. Schema-only validation has the highest raw task success in this matrix, narrowly ahead of the full runtime. The full runtime's distinctive result is different: it is the only configuration with non-zero bounded recovery, and it reduces cost per successful task relative to retry-only while making violations explicit in the trace.
+Table~\ref{tab:main} reports the per-method averages over the full \mbox{$\tau^3$}-bench main matrix, weighted by the number of tasks per cell. Vanilla tool calling produces no runtime-successful completions against the live LLM and is therefore dead-lettered for every run. The fixture and runtime success rates are reported separately: the fixture column is the fixture-backed assertion score derived from public benchmark metadata, while the runtime column is the contractual runtime's final state. Schema-only validation has the highest raw task success in this matrix, narrowly ahead of the full runtime. The full runtime's distinctive result is different: it keeps weighted cost-per-success comparable to schema-only, improves materially over retry-only, and makes contract violations plus recovery decisions explicit in the trace.
+
+\textbf{Success metric definitions.} \emph{Fixture success} is the fixture-backed assertion score (NL assertions + policy compliance) derived from public benchmark metadata rather than a full benchmark-native simulator rerun. \emph{Runtime success} is the contractual runtime's final state (no dead-letter, no failed contract recovery). \emph{Bounded recovery} counts only the bounded recovery controller, not the schema-only quick-repair path. In the current main matrix this metric remains zero for every evaluated configuration, so it should not be used as a headline empirical win. \emph{Over-rejection} (false dead-letter) is the rate at which the runtime dead-letters a trajectory that the fixture would have accepted; this is the audit signal that closes the "silent failure = 0" gap.
+
+\textbf{Cost aggregation.} Cost per successful task is reported in two forms to keep the aggregation rule auditable: (i) \emph{weighted} -- total cost across all cells divided by total successes, including cells with zero successes as zero-cost / zero-success contributions; (ii) \emph{nonzero-mean} -- the mean of per-cell cost-per-success, taken only over cells where successes $> 0$.  The two values are reported side-by-side so reviewers can see the gap is small; the paper claims the \emph{weighted} value in the prose.
 
 \begin{table}[t]
     \centering
-    \caption{Main \mbox{$\tau^3$}-bench results, weighted across 216 tasks per method over airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2.}
+    \caption{Main \mbox{$\tau^3$}-bench results, task-weighted across 216 sampled executions per method over 36 distinct task-trial instances spanning airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2. ``Fixture'' is the fixture-backed assertion score derived from public benchmark metadata, not a full benchmark-native simulator rerun; ``Runtime'' is the contractual runtime's final state; ``Bounded recovery'' counts only the recovery controller. Cost / success is reported both task-weighted and as the mean over non-empty cells. \emph{Over-rejection} is the rate at which the runtime dead-letters a fixture-acceptable trajectory.}
     \label{tab:main}
     \resizebox{\columnwidth}{!}{%
-    \begin{tabular}{lrrrr}
+    \begin{tabular}{lrrrrrr}
         \toprule
-        Method & Task success & Dead-letter & Recovery & Cost / success \\
+        Method & Fixture & Runtime & Over-reject. & Dead-letter & Bounded recovery & Cost / success (weighted) \\
         \midrule
-        Vanilla              & 0.00 & 1.00 & 0.00 & -- \\
-        Retry-only           & 0.12 & 0.88 & 0.00 & 59.19 \\
-        Schema-only          & \textbf{0.15} & \textbf{0.85} & 0.00 & 34.24 \\
-        \system{} (full)     & 0.15 & 0.85 & \textbf{0.15} & \textbf{27.00} \\
+        Vanilla              & 0.13 & 0.00 & 0.13 & 1.00 & 0.00 & -- \\
+        Retry-only           & 0.12 & 0.12 & 0.00 & 0.88 & 0.00 & 37.19 \\
+        Schema-only          & \textbf{0.15} & \textbf{0.15} & 0.00 & \textbf{0.85} & 0.00 & 16.55 \\
+        \system{} (full)     & 0.15 & 0.15 & 0.00 & 0.85 & 0.00 & \textbf{16.50} \\
         \bottomrule
     \end{tabular}
     }
 \end{table}
 
-Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matrix. \emph{All four configurations} report a silent-failure rate of zero on the live LLM, so this number should not be read as evidence that the full runtime uniquely prevents silent failure. The stronger evidence is that schema-only and full runtime expose contract violations, and only the full runtime connects those violations to bounded recovery actions in the event trace.
+Table~\ref{tab:main} shows that \emph{the full runtime reduces cost per successful task relative to retry-only and remains comparable to schema-only, while making runtime decisions auditable in the trace.}  The full runtime is \emph{not} the most cost-efficient configuration in this matrix; schema-only and full are within 0.3\% on the weighted cost metric, and schema-only slightly leads on the nonzero-mean metric (16.55 vs.\ 16.50 weighted; 22.55 vs.\ 27.31 nonzero-mean).  The current main matrix does \emph{not} show non-zero bounded-recovery success for any configuration, so the differentiating empirical result is traceability plus explicit contract handling rather than a stronger recovery-success claim.
+
+Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matrix. \emph{All four configurations} report a silent-failure rate of zero on the live LLM, so this number should not be read as evidence that the full runtime uniquely prevents silent failure. The corresponding audit signal is \emph{over-rejection} (false dead-letter): the rate at which the runtime dead-letters a trajectory the fixture would have accepted.  In the current main matrix over-rejection is zero for retry-only, schema-only, and the full runtime, but vanilla reports non-zero over-rejection because it dead-letters every run while the fixture still accepts a subset of trajectories.
 
 \begin{table}[t]
     \centering
@@ -48,12 +54,12 @@ Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matri
     \resizebox{\columnwidth}{!}{%
     \begin{tabular}{lrrrr}
         \toprule
-        Method & Silent failures & Contract viol. & Dead-letter & Recovery actions \\
+        Method & Silent failures & Contract viol. & Dead-letter & Trace events / task \\
         \midrule
         Vanilla              & \textbf{0.00} & 0.00 & 1.00 & 0.00 \\
-        Retry-only           & \textbf{0.00} & 0.00 & 0.88 & 3.00 \\
-        Schema-only          & \textbf{0.00} & \textbf{1.00} & 0.85 & 1.00 \\
-        \system{} (full)     & \textbf{0.00} & \textbf{1.00} & 0.85 & \textbf{1.40} \\
+        Retry-only           & \textbf{0.00} & 0.00 & 0.88 & 0.00 \\
+        Schema-only          & \textbf{0.00} & \textbf{1.00} & 0.85 & 0.00 \\
+        \system{} (full)     & \textbf{0.00} & \textbf{1.00} & 0.85 & \textbf{6.00} \\
         \bottomrule
     \end{tabular}
     }
@@ -87,31 +93,29 @@ Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matri
     \centering
     \includegraphics[width=\linewidth]{figs/cost_per_success.pdf}
     \Description{Bar chart of cost per successful task by runtime method.}
-    \caption{Cost per successful task under fault injection.}
+    \caption{Nonzero-cell mean cost per successful task under fault injection.}
     \label{fig:cost}
 \end{figure}
 
-\subsection{AgentChangeBench Diagnostic Supplement}
+\subsection{AgentChangeBench Coverage}
 
-The AgentChangeBench supplement measures target-change recovery rate (TCRR) and goal-shift recovery time (GSRT) under the same stressors. In this artifact, all AgentChangeBench task-success rates are zero and dead-letter rates are one, so the result is diagnostic rather than a main success claim. \system{} achieves the lowest measured GSRT (2.0 actions per goal shift vs.\ 7.1 for vanilla), but the absence of successful goal-change completions means this figure should be treated as evidence about bounded action count, not task-level recovery.
+AgentChangeBench rows are still executed and audited so the artifact covers both public workload families, but we do not treat the current AgentChangeBench outputs as evidence for goal-change recovery. In the current matrix the benchmark's target-shift metrics are dominated by definition effects and zero-success cells, so the earlier AgentChangeBench recovery figure and any claim based on TCRR or GSRT are intentionally omitted from the camera-ready artifact until the runtime executes genuine goal-shift workflows with benchmark-native semantics.
 
-\begin{figure}[t]
-    \centering
-    \includegraphics[width=\linewidth]{figs/agentchange_recovery.pdf}
-    \Description{Grouped bar chart summarizing GSRT, TCRR, and recovery success rate on AgentChangeBench airline and retail tasks.}
-    \caption{AgentChangeBench GSRT and TCRR comparison by method.}
-    \label{fig:agentchange}
-\end{figure}
+\subsection{Controlled Successful-Trajectory Fault Injection}
+
+The main matrix uses a random fault-injection schedule with a target rate. This is useful for measuring steady-state robustness but does not provide strong causal attribution by fault class. The artifact therefore includes an exploratory controlled fault-injection pipeline that builds a no-fault reference set, replays each reference trajectory with a single injected stressor, and aggregates containment, runtime success, fixture success, contamination, and over-rejection outcomes.
+
+At the current stage this pipeline should be read as an artifact component rather than as a main empirical result. The committed outputs in ``paper/aamas2026/tables/controlled\_fault\_table.csv'' are small and sparse, so they do not yet support strong per-stressor causal claims. The design note and runnable pipeline remain valuable for follow-up work because they define the reference-set construction, deterministic seeding, and aggregation protocol needed for a larger controlled study.
 
 \subsection{Ablation Study}
 
-The minimum ablation set disables one \system{} component at a time. Removing the contract monitor collapses recovery success to zero because the localizer and recovery controller have no explicit violation event to act on; removing the fault localizer inflates cost without improving success. The full method is the only configuration with non-zero bounded recovery in the ablation matrix, while zero silent failure is shared across methods in the current scoring setup.
+The minimum ablation set disables one \system{} component at a time. Each ablation row in the main matrix summary table is the task-weighted mean over the (telecom, fault rate 0.2, concurrency 1) cells in the same matrix; this is the only fault rate at which all four ablations and the full method were co-located. In the current aggregated outputs, recovery success remains zero for the full method and every ablation. The practical value of the ablation table is therefore diagnostic: it shows how task success and dead-letter behavior move when monitor, localizer, bounded-recovery, or event-trace components are removed, without overstating recovery-success evidence.
 
 \begin{figure}[t]
     \centering
     \includegraphics[width=\linewidth]{figs/ablation_study.pdf}
     \Description{Grouped bar chart comparing task success and recovery success across runtime ablations.}
-    \caption{Ablation study over contractual runtime components.}
+    \caption{Ablation study over contractual runtime components. In the current matrix, recovery success remains zero across the aggregated ablation rows, so the comparison should be read mainly as a task-success and failure-containment diagnostic rather than as a recovery-success result.}
     \label{fig:ablation}
 \end{figure}
 
@@ -126,7 +130,7 @@ The minimum ablation set disables one \system{} component at a time. Removing th
         Harness execution & Complete & run\_real\_external.py on Qwen3-8B \\
         Runtime metrics & Complete & aggregate\_suite (116 summary rows) \\
         Main \mbox{$\tau^3$}-bench & Complete & external audit gate \\
-        AgentChangeBench & Complete & external audit gate \\
+        AgentChangeBench coverage & Complete & external audit gate \\
         Paper figures & Complete & refresh\_paper\_artifacts \\
         \bottomrule
     \end{tabular}

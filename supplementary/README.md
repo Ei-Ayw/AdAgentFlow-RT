@@ -3,7 +3,8 @@
 This zip contains the review artifact for the AAMAS 2026 paper
 "AdAgentFlow-RT: A Contractual Runtime for Reliable High-Throughput
 Long-Horizon Multi-Agent Workflows". It is regenerable end-to-end from the
-scripts in `experiments/harness/` and the runbook in `docs/aamas/experiment_runbook.md`.
+harness code, `scripts/finalize_submission.sh`, and the runbook in
+`docs/aamas/experiment_runbook.md`.
 
 ## Contents
 
@@ -31,15 +32,18 @@ experiments/
     metrics/               # Reliability metric implementations
   results/main/real_full_v2/  # JSONL rows + summary.json + run_plan.json + audit.json
 
-docs/aamas/                # 6 research/design/runbook markdown docs
+docs/aamas/                # Research/design/runbook markdown docs
+docs/contracts/            # Controlled fault-injection design note
 
 app/
   contracts/               # Contract definitions (schema/semantic/dependency/budget/recovery)
   runtime/                 # Runtime kernel (monitor, localizer, recovery, scheduler, trace)
   services/llm_client.py   # Async LLM client used by the app (harness uses sync version)
 
+scripts/
+  finalize_submission.sh   # Rebuild summary/tables/figures/pdf from audited results
+
 requirements.txt           # Pinned deps
-pyproject.toml             # Project metadata
 supplementary/README.md    # This artifact description
 ```
 
@@ -65,17 +69,17 @@ ln -s ../../AgentChangeBench data/external/AgentChangeBench
 pip install -r requirements.txt
 export LLM_BASE_URL=http://localhost:8000/v1
 export LLM_MODEL=Qwen3-8B
-.venv/bin/python -m experiments.harness.run_real_external \
+python -m experiments.harness.run_real_external \
   --output-dir experiments/results/main/real_full_v2 \
   --num-tasks 6 --num-trials 2 --concurrencies 1,5 --fault-rates 0.0,0.1,0.2
 
 # 4. Aggregate + refresh + audit
-.venv/bin/python -m experiments.harness.aggregate_suite \
+python -m experiments.harness.aggregate_suite \
   --suite-dir experiments/results/main/real_full_v2 \
   --json-output experiments/results/main/real_full_v2/summary.json
-.venv/bin/python -m experiments.harness.refresh_paper_artifacts \
+python -m experiments.harness.refresh_paper_artifacts \
   --summary experiments/results/main/real_full_v2/summary.json
-.venv/bin/python -m experiments.harness.audit_results \
+python -m experiments.harness.audit_results \
   --summary experiments/results/main/real_full_v2/summary.json \
   --require-external-main --require-agentchange
 ```

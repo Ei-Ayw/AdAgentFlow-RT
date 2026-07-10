@@ -29,10 +29,10 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Bounded Recovery}{2}{subsection.3.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {4}AdAgentFlow-RT\xspace  Runtime}{2}{section.4}\protected@file@percent }
 \newlabel{sec:system}{{4}{2}{\system Runtime}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Runtime Kernel}{2}{subsection.4.1}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces AdAgentFlow-RT\xspace  contractual runtime components.\relax }}{3}{figure.caption.5}\protected@file@percent }
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
 \newlabel{fig:system}{{1}{3}{\system contractual runtime components.\relax }{figure.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Runtime Kernel}{3}{subsection.4.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Event-Sourced Trace}{3}{subsection.4.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Runtime Strategies}{3}{subsection.4.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Production-Stress Evaluation Harness}{3}{section.5}\protected@file@percent }
@@ -45,54 +45,69 @@
 \@writefile{toc}{\contentsline {section}{\numberline {6}Experiments}{4}{section.6}\protected@file@percent }
 \newlabel{sec:experiments}{{6}{4}{Experiments}{section.6}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Main Matrix}{4}{subsection.6.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Main \mbox  {$\tau ^3$}-bench results, task-weighted across 216 sampled executions per method over 36 distinct task-trial instances spanning airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2. ``Fixture'' is the fixture-backed assertion score derived from public benchmark metadata, not a full benchmark-native simulator rerun; ``Runtime'' is the contractual runtime's final state; ``Bounded recovery'' counts only the recovery controller. Cost / success is reported both task-weighted and as the mean over non-empty cells. \emph  {Over-rejection} is the rate at which the runtime dead-letters a fixture-acceptable trajectory.\relax }}{4}{table.caption.7}\protected@file@percent }
+\newlabel{tab:main}{{1}{4}{Main \mbox {$\tau ^3$}-bench results, task-weighted across 216 sampled executions per method over 36 distinct task-trial instances spanning airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2. ``Fixture'' is the fixture-backed assertion score derived from public benchmark metadata, not a full benchmark-native simulator rerun; ``Runtime'' is the contractual runtime's final state; ``Bounded recovery'' counts only the recovery controller. Cost / success is reported both task-weighted and as the mean over non-empty cells. \emph {Over-rejection} is the rate at which the runtime dead-letters a fixture-acceptable trajectory.\relax }{table.caption.7}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Main Results}{4}{subsection.6.2}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Main \mbox  {$\tau ^3$}-bench results, weighted across 216 tasks per method over airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2.\relax }}{4}{table.caption.7}\protected@file@percent }
-\newlabel{tab:main}{{1}{4}{Main \mbox {$\tau ^3$}-bench results, weighted across 216 tasks per method over airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2.\relax }{table.caption.7}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Runtime-stability metrics aggregated over the main matrix.\relax }}{4}{table.caption.8}\protected@file@percent }
-\newlabel{tab:runtime}{{2}{4}{Runtime-stability metrics aggregated over the main matrix.\relax }{table.caption.8}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Task success rate by concurrency, generated from the external main-matrix summary.\relax }}{4}{figure.caption.9}\protected@file@percent }
-\newlabel{fig:success}{{3}{4}{Task success rate by concurrency, generated from the external main-matrix summary.\relax }{figure.caption.9}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}AgentChangeBench Diagnostic Supplement}{4}{subsection.6.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Runtime-stability metrics aggregated over the main matrix.\relax }}{5}{table.caption.8}\protected@file@percent }
+\newlabel{tab:runtime}{{2}{5}{Runtime-stability metrics aggregated over the main matrix.\relax }{table.caption.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Task success rate by concurrency, generated from the external main-matrix summary.\relax }}{5}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:success}{{3}{5}{Task success rate by concurrency, generated from the external main-matrix summary.\relax }{figure.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}AgentChangeBench Coverage}{5}{subsection.6.3}\protected@file@percent }
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Recovery success and dead-letter rate under injected production faults.\relax }}{5}{figure.caption.10}\protected@file@percent }
 \newlabel{fig:recovery}{{4}{5}{Recovery success and dead-letter rate under injected production faults.\relax }{figure.caption.10}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces P95 latency by concurrency in the external main matrix.\relax }}{5}{figure.caption.11}\protected@file@percent }
 \newlabel{fig:latency}{{5}{5}{P95 latency by concurrency in the external main matrix.\relax }{figure.caption.11}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Cost per successful task under fault injection.\relax }}{5}{figure.caption.12}\protected@file@percent }
-\newlabel{fig:cost}{{6}{5}{Cost per successful task under fault injection.\relax }{figure.caption.12}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Ablation Study}{5}{subsection.6.4}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces AgentChangeBench GSRT and TCRR comparison by method.\relax }}{5}{figure.caption.13}\protected@file@percent }
-\newlabel{fig:agentchange}{{7}{5}{AgentChangeBench GSRT and TCRR comparison by method.\relax }{figure.caption.13}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Ablation study over contractual runtime components.\relax }}{5}{figure.caption.14}\protected@file@percent }
-\newlabel{fig:ablation}{{8}{5}{Ablation study over contractual runtime components.\relax }{figure.caption.14}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Evidence status for the current artifact. The status is updated by the finalization script and audit gate.\relax }}{5}{table.caption.15}\protected@file@percent }
-\newlabel{tab:evidence-status}{{3}{5}{Evidence status for the current artifact. The status is updated by the finalization script and audit gate.\relax }{table.caption.15}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Reproduction and Audit}{5}{subsection.6.5}\protected@file@percent }
-\citation{tau2bench,agentchangebench}
-\citation{autogen,react}
-\citation{chaosengineering}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Nonzero-cell mean cost per successful task under fault injection.\relax }}{5}{figure.caption.12}\protected@file@percent }
+\newlabel{fig:cost}{{6}{5}{Nonzero-cell mean cost per successful task under fault injection.\relax }{figure.caption.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}Controlled Successful-Trajectory Fault Injection}{5}{subsection.6.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Ablation study over contractual runtime components. In the current matrix, recovery success remains zero across the aggregated ablation rows, so the comparison should be read mainly as a task-success and failure-containment diagnostic rather than as a recovery-success result.\relax }}{6}{figure.caption.13}\protected@file@percent }
+\newlabel{fig:ablation}{{7}{6}{Ablation study over contractual runtime components. In the current matrix, recovery success remains zero across the aggregated ablation rows, so the comparison should be read mainly as a task-success and failure-containment diagnostic rather than as a recovery-success result.\relax }{figure.caption.13}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}Ablation Study}{6}{subsection.6.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}Reproduction and Audit}{6}{subsection.6.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Evidence status for the current artifact. The status is updated by the finalization script and audit gate.\relax }}{6}{table.caption.14}\protected@file@percent }
+\newlabel{tab:evidence-status}{{3}{6}{Evidence status for the current artifact. The status is updated by the finalization script and audit gate.\relax }{table.caption.14}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {7}Discussion}{6}{section.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Cost and Reliability}{6}{subsection.7.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Limits of the Current Artifact}{6}{subsection.7.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Threats to Validity}{6}{subsection.7.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {8}Related Work}{6}{section.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Agent Benchmarks}{6}{subsection.8.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Multi-Agent Frameworks}{6}{subsection.8.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Runtime Verification and Observability}{6}{subsection.8.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Fault Injection}{6}{subsection.8.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{6}{section.9}\protected@file@percent }
+\citation{tau2bench,agentchangebench}
+\citation{agentbench,sweagent}
+\citation{autogen,react,langgraph}
+\citation{toolformer,reflexion}
+\citation{runtimeverification}
+\citation{guardrails,jsonformer}
+\citation{opentelemetry}
+\citation{chaosengineering}
+\citation{airflow}
 \bibstyle{ACM-Reference-Format}
 \bibdata{refs}
-\bibcite{agentchangebench}{{1}{2026}{{AgentChangeBench Contributors}}{{}}}
-\bibcite{chaosengineering}{{2}{2020}{{Rosenthal et~al\mbox  {.}}}{{}}}
-\bibcite{tau2bench}{{3}{2026}{{Sierra Research}}{{}}}
-\bibcite{autogen}{{4}{2023}{{Wu et~al\mbox  {.}}}{{}}}
-\bibcite{react}{{5}{2023}{{Yao et~al\mbox  {.}}}{{}}}
+\bibcite{jsonformer}{{1}{2023}{{1rgs}}{{}}}
+\bibcite{agentchangebench}{{2}{2026}{{AgentChangeBench Contributors}}{{}}}
+\bibcite{opentelemetry}{{3}{2024}{{Cloud Native Computing Foundation}}{{}}}
+\bibcite{airflow}{{4}{2024}{{Foundation}}{{}}}
+\bibcite{guardrails}{{5}{2024}{{Guardrails AI}}{{}}}
+\bibcite{langgraph}{{6}{2024}{{LangChain Inc.}}{{}}}
+\bibcite{runtimeverification}{{7}{2009}{{Leucker and Schallhart}}{{}}}
+\bibcite{agentbench}{{8}{2024}{{Liu et~al\mbox  {.}}}{{}}}
+\bibcite{chaosengineering}{{9}{2020}{{Rosenthal et~al\mbox  {.}}}{{}}}
+\bibcite{toolformer}{{10}{2023}{{Schick et~al\mbox  {.}}}{{}}}
+\bibcite{reflexion}{{11}{2023}{{Shinn et~al\mbox  {.}}}{{}}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Threats to Validity}{7}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Related Work}{7}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Agent Benchmarks}{7}{subsection.8.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Multi-Agent Frameworks}{7}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Runtime Verification and Observability}{7}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}Fault Injection}{7}{subsection.8.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{7}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{Acknowledgments}{7}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{7}{section*.18}\protected@file@percent }
+\bibcite{tau2bench}{{12}{2026}{{Sierra Research}}{{}}}
+\bibcite{autogen}{{13}{2023}{{Wu et~al\mbox  {.}}}{{}}}
+\bibcite{sweagent}{{14}{2024}{{Yang et~al\mbox  {.}}}{{}}}
+\bibcite{react}{{15}{2023}{{Yao et~al\mbox  {.}}}{{}}}
 \newlabel{tocindent-1}{0pt}
 \newlabel{tocindent0}{0pt}
 \newlabel{tocindent1}{4.185pt}
 \newlabel{tocindent2}{10.35pt}
 \newlabel{tocindent3}{0pt}
-\@writefile{toc}{\contentsline {section}{Acknowledgments}{7}{section*.17}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{References}{7}{section*.19}\protected@file@percent }
-\newlabel{TotPages}{{7}{7}{}{page.7}{}}
-\gdef \@abspage@last{7}
+\newlabel{TotPages}{{8}{8}{}{page.8}{}}
+\gdef \@abspage@last{8}

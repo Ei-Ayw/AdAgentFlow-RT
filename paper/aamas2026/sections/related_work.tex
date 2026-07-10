@@ -4,16 +4,16 @@ This work relates to agent benchmarks, multi-agent frameworks, runtime verificat
 
 \subsection{Agent Benchmarks}
 
-Agent benchmarks evaluate task completion, tool-use correctness, policy compliance, and goal-change behavior. This work treats tau2-bench / \mbox{$\tau^3$}-bench and AgentChangeBench~\cite{tau2bench,agentchangebench} as workload providers rather than datasets to replace. The current harness preserves task fixtures and metric fields, uses assertion-based wrapper scoring, and adds runtime-stability metrics around the same tasks; a full benchmark-native simulator rerun is future validation rather than a current claim.
+Agent benchmarks evaluate task completion, tool-use correctness, policy compliance, and goal-change behavior. This work treats tau2-bench / \mbox{$\tau^3$}-bench and AgentChangeBench~\cite{tau2bench,agentchangebench} as workload providers rather than datasets to replace. The current harness preserves task fixtures and metric fields, uses assertion-based wrapper scoring, and adds runtime-stability metrics around the same tasks; a full benchmark-native simulator rerun and genuine multi-turn goal-shift execution are future validation rather than current claims. This positioning is closer to agent-evaluation work such as AgentBench and SWE-agent than to a new benchmark proposal~\cite{agentbench,sweagent}.
 
 \subsection{Multi-Agent Frameworks}
 
-Multi-agent frameworks provide abstractions for agent composition, tool invocation, message routing, planning, and memory~\cite{autogen,react}. \system complements these capabilities with execution contracts, bounded recovery, event traces, dead-letter behavior, and stress evaluation.
+Multi-agent frameworks provide abstractions for agent composition, tool invocation, message routing, planning, and memory~\cite{autogen,react,langgraph}. Tool-using and self-correcting agent patterns such as Toolformer and Reflexion show the value of explicit action structure and iterative correction~\cite{toolformer,reflexion}. \system complements these capabilities with execution contracts, bounded recovery, event traces, dead-letter behavior, and stress evaluation.
 
 \subsection{Runtime Verification and Observability}
 
-Runtime verification checks whether executions satisfy specified properties. \system adapts this view to probabilistic agent workflows by making contracts executable and recovery-aware. Production observability motivates the event-sourced trace: every violation, diagnosis, and recovery decision must be attributable to a task, run, and node.
+Runtime verification checks whether executions satisfy specified properties~\cite{runtimeverification}. \system adapts this view to probabilistic agent workflows by making contracts executable and recovery-aware. Structured-output guardrails and schema-constrained generation systems pursue a related goal at the model-output layer~\cite{guardrails,jsonformer}. Production observability motivates the event-sourced trace: every violation, diagnosis, and recovery decision must be attributable to a task, run, and node, aligning with modern observability stacks such as OpenTelemetry~\cite{opentelemetry}.
 
 \subsection{Fault Injection}
 
-Fault injection and chaos engineering test whether a system remains reliable under controlled failures~\cite{chaosengineering}. The harness applies those ideas to multi-agent runtime boundaries: tool calls, context, schema, worker execution, and duplicate delivery.
+Fault injection and chaos engineering test whether a system remains reliable under controlled failures~\cite{chaosengineering}. Workflow orchestrators such as Airflow provide operational scheduling abstractions but do not solve LLM-specific schema drift, semantic mismatch, or recovery-audit problems~\cite{airflow}. The harness applies fault-injection ideas to multi-agent runtime boundaries: tool calls, context, schema, worker execution, and duplicate delivery.

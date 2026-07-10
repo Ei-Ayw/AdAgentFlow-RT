@@ -2,7 +2,7 @@
 %%% Do NOT edit. File created by BibTeX with style
 %%% ACM-Reference-Format-Journals [18-Jan-2012].
 
-\begin{thebibliography}{5}
+\begin{thebibliography}{15}
 
 %%% ====================================================================
 %%% NOTE TO THE USER: you can override these defaults by providing
@@ -37,6 +37,15 @@
 \providecommand\natexlab[1]{#1}
 \providecommand\showeprint[2][]{arXiv:#2}
 
+\bibitem[{1rgs}(2023)]%
+        {jsonformer}
+\bibfield{author}{\bibinfo{person}{{1rgs}}.} \bibinfo{year}{2023}\natexlab{}.
+\newblock \bibinfo{title}{Jsonformer: A Bulletproof Way to Generate Structured
+  JSON from Language Models}.
+\newblock \bibinfo{howpublished}{\url{https://github.com/1rgs/jsonformer}}.
+\newblock
+
+
 \bibitem[{AgentChangeBench Contributors}(2026)]%
         {agentchangebench}
 \bibfield{author}{\bibinfo{person}{{AgentChangeBench Contributors}}.}
@@ -48,6 +57,78 @@
 \shownote{Public benchmark used as a supplementary goal-change workload}.
 
 
+\bibitem[{Cloud Native Computing Foundation}(2024)]%
+        {opentelemetry}
+\bibfield{author}{\bibinfo{person}{{Cloud Native Computing Foundation}}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{OpenTelemetry: Unified Observability for Modern
+  Systems}.
+\newblock \bibinfo{journal}{\emph{Project documentation}}
+  (\bibinfo{year}{2024}).
+\newblock
+\urldef\tempurl%
+\url{https://opentelemetry.io/}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Foundation(2024)]%
+        {airflow}
+\bibfield{author}{\bibinfo{person}{Apache~Software Foundation}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{Airflow: A Workflow Management Platform}. In
+  \bibinfo{booktitle}{\emph{Apache project documentation}}.
+\newblock
+
+
+\bibitem[{Guardrails AI}(2024)]%
+        {guardrails}
+\bibfield{author}{\bibinfo{person}{{Guardrails AI}}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{Guardrails: Adding Guardrails to Large Language
+  Models}.
+\newblock
+  \bibinfo{howpublished}{\url{https://github.com/guardrails-ai/guardrails}}.
+\newblock
+
+
+\bibitem[{LangChain Inc.}(2024)]%
+        {langgraph}
+\bibfield{author}{\bibinfo{person}{{LangChain Inc.}}}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{LangGraph}.
+\newblock \bibinfo{journal}{\emph{Software framework documentation}}
+  (\bibinfo{year}{2024}).
+\newblock
+\urldef\tempurl%
+\url{https://github.com/langchain-ai/langgraph}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Leucker and Schallhart(2009)]%
+        {runtimeverification}
+\bibfield{author}{\bibinfo{person}{Martin Leucker} {and}
+  \bibinfo{person}{Christian Schallhart}.} \bibinfo{year}{2009}\natexlab{}.
+\newblock \showarticletitle{Runtime Verification}.
+\newblock \bibinfo{journal}{\emph{Journal of Logic and Algebraic Programming}}
+  \bibinfo{volume}{78}, \bibinfo{number}{5} (\bibinfo{year}{2009}),
+  \bibinfo{pages}{293--303}.
+\newblock
+
+
+\bibitem[Liu et~al\mbox{.}(2024)]%
+        {agentbench}
+\bibfield{author}{\bibinfo{person}{Xiao Liu}, \bibinfo{person}{Yizhou Gu},
+  \bibinfo{person}{Yicheng Xia}, \bibinfo{person}{Yizhou Wu},
+  \bibinfo{person}{Jiaqi Liu}, \bibinfo{person}{Dong Yu}, {et~al\mbox{.}}}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{AgentBench: Evaluating LLMs as Agents}. In
+  \bibinfo{booktitle}{\emph{International Conference on Learning
+  Representations}}.
+\newblock
+
+
 \bibitem[Rosenthal et~al\mbox{.}(2020)]%
         {chaosengineering}
 \bibfield{author}{\bibinfo{person}{Casey Rosenthal}, \bibinfo{person}{Nora
@@ -57,6 +138,33 @@
   Practice}}.
 \newblock \bibinfo{publisher}{O'Reilly Media}.
 \newblock
+
+
+\bibitem[Schick et~al\mbox{.}(2023)]%
+        {toolformer}
+\bibfield{author}{\bibinfo{person}{Timo Schick}, \bibinfo{person}{Jane
+  Dwivedi-Yu}, \bibinfo{person}{Roberto Dess{\'i}}, \bibinfo{person}{Roberta
+  Raileanu}, \bibinfo{person}{Maria Lomeli}, \bibinfo{person}{Eric Hambro},
+  \bibinfo{person}{Luke Zettlemoyer}, \bibinfo{person}{Nicola Cancedda}, {and}
+  \bibinfo{person}{Thomas Scialom}.} \bibinfo{year}{2023}\natexlab{}.
+\newblock \bibinfo{title}{Toolformer: Language Models Can Teach Themselves to
+  Use Tools}.
+\newblock
+\newblock
+\showeprint[arxiv]{2302.04761}~[cs.CL]
+
+
+\bibitem[Shinn et~al\mbox{.}(2023)]%
+        {reflexion}
+\bibfield{author}{\bibinfo{person}{Noah Shinn}, \bibinfo{person}{Federico
+  Cassano}, \bibinfo{person}{Ashwin Gopinath}, \bibinfo{person}{Karthik
+  Narasimhan}, {and} \bibinfo{person}{Shunyu Yao}.}
+  \bibinfo{year}{2023}\natexlab{}.
+\newblock \bibinfo{title}{Reflexion: Language Agents with Verbal Reinforcement
+  Learning}.
+\newblock
+\newblock
+\showeprint[arxiv]{2303.11366}~[cs.AI]
 
 
 \bibitem[{Sierra Research}(2026)]%
@@ -85,6 +193,17 @@
 \newblock
 \newblock
 \showeprint[arxiv]{2308.08155}~[cs.AI]
+
+
+\bibitem[Yang et~al\mbox{.}(2024)]%
+        {sweagent}
+\bibfield{author}{\bibinfo{person}{John Yang} {et~al\mbox{.}}}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{SWE-agent: Agent-Computer Interfaces Enable Automated
+  Software Engineering}.
+\newblock
+\newblock
+\showeprint[arxiv]{2405.15793}~[cs.SE]
 
 
 \bibitem[Yao et~al\mbox{.}(2023)]%

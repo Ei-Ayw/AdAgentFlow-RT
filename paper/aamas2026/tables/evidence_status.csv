@@ -4,7 +4,7 @@ Runtime metrics and traces,experiments/results/main/real_full_v2/summary.json,co
 Main tau2/tau3 benchmark claims,experiments/results/main/real_full_v2/*tau3*.jsonl,complete,external benchmark_repo_path + audit_results --require-external-main
 AgentChangeBench recovery claims,experiments/results/main/real_full_v2/*agentchange*.jsonl,complete,external benchmark_repo_path + audit_results --require-agentchange
 Paper tables and figures,paper/aamas2026/tables and figs,complete,refresh_paper_artifacts from real_full_v2 summary
-Ablation study (4 ablations),experiments/results/main/real_full_v2/*__without_*.jsonl,complete,4 ablations: without_contract_monitor, without_fault_localizer, without_bounded_recovery, without_event_trace
-Stress harness,experiments/harness/stressors/,complete,7 stressors: tool_timeout, rate_limit, partial_response, schema_drift, stale_context, duplicate_message, worker_crash
-Runtime strategies,experiments/harness/runtime_adapters/,complete,4 strategies: vanilla, retry_only, schema_only, adagentflow_rt
-Real-LLM evidence,experiments/results/main/real_full_v2/summary.json,complete,1392 JSONL rows across 39 runs on Qwen3-8B (vLLM 0.23.0, --gpu-memory-utilization 0.20, ~4h total)
+Ablation study (4 ablations),experiments/results/main/real_full_v2/*__without_*.jsonl,complete,4 ablations: without_contract_monitor; without_fault_localizer; without_bounded_recovery; without_event_trace
+Stress harness,experiments/harness/stressors/,complete,7 stressors: tool_timeout; rate_limit; partial_response; schema_drift; stale_context; duplicate_message; worker_crash
+Runtime strategies,experiments/harness/runtime_adapters/,complete,4 strategies: vanilla; retry_only; schema_only; adagentflow_rt
+Real-LLM evidence,experiments/results/main/real_full_v2/summary.json,complete,1392 JSONL rows across 39 runs on Qwen3-8B (vLLM 0.23.0; --gpu-memory-utilization 0.20; ~4h total)
