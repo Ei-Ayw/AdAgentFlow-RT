@@ -8,7 +8,7 @@ Contracts and traces add runtime work. The relevant tradeoff is not raw latency 
 
 \subsection{Limits of the Current Artifact}
 
-The current artifact is external-benchmark backed: all four runtime methods are driven by the \texttt{SyncLLMClient} against public benchmark task fixtures, and the main matrix is gated by \texttt{audit\_results.py} with \texttt{--require-external-main --require-agentchange}. The harness still includes deterministic smoke modes for development and regression tests, but those rows are not used for the paper's main claims. The remaining limitation is scale and model diversity rather than missing external coverage: the matrix uses a single Qwen3-8B endpoint and a bounded number of tasks per cell so the full run remains reproducible on one shared GPU endpoint.
+The current artifact is external-benchmark backed: all four runtime methods are driven by the \texttt{SyncLLMClient} against public benchmark task fixtures, and the main matrix is gated by an audit script that requires both external main-matrix rows and AgentChangeBench rows. The harness still includes deterministic smoke modes for development and regression tests, but those rows are not used for the paper's main claims. The remaining limitation is scale and model diversity rather than missing external coverage: the matrix uses a single Qwen3-8B endpoint and a bounded number of tasks per cell so the full run remains reproducible on one shared GPU endpoint.
 
 \subsection{Threats to Validity}
 

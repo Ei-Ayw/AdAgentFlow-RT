@@ -15,14 +15,14 @@ from typing import Any, Callable, Dict, Iterable, List
 
 
 FIGURES = {
-    "system_architecture.pdf": "Figure 1: AdAgentFlow-RT contractual runtime architecture",
-    "stress_harness.pdf": "Figure 2: Production-stress evaluation harness",
-    "success_vs_concurrency.pdf": "Figure 3: Success rate vs concurrency",
-    "latency_vs_concurrency.pdf": "Figure 4: P95 latency vs concurrency",
-    "recovery_vs_fault_rate.pdf": "Figure 5: Recovery and dead-letter rate vs fault rate",
-    "cost_per_success.pdf": "Figure 6: Cost per successful task under fault injection",
-    "agentchange_recovery.pdf": "Figure 7: AgentChangeBench GSRT and TCRR comparison",
-    "ablation_study.pdf": "Figure 8: Ablation study",
+    "system_architecture.pdf": "AdAgentFlow-RT contractual runtime architecture",
+    "stress_harness.pdf": "Production-stress evaluation harness",
+    "success_vs_concurrency.pdf": "Success rate vs concurrency",
+    "latency_vs_concurrency.pdf": "P95 latency vs concurrency",
+    "recovery_vs_fault_rate.pdf": "Recovery and dead-letter rate vs fault rate",
+    "cost_per_success.pdf": "Cost per successful task under fault injection",
+    "agentchange_recovery.pdf": "AgentChangeBench GSRT and TCRR comparison",
+    "ablation_study.pdf": "Ablation study",
 }
 
 

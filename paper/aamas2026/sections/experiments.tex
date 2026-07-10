@@ -1,9 +1,9 @@
 \section{Experiments}
 \label{sec:experiments}
 
-We evaluate four runtime strategies (vanilla tool calling, retry-only, schema-only, \system) on three public benchmark task families (\mbox{$\tau^3$}-bench \textit{airline / retail / telecom} and AgentChangeBench \textit{airline / retail}) under controlled concurrency, repeated trials, and injected faults. Every experiment writes a machine-readable JSONL row keyed by \texttt{task\_id}, \texttt{run\_id}, \texttt{method}, \texttt{ablation}, \texttt{benchmark\_adapter\_mode}, and \texttt{max\_concurrency}.
+We evaluate four runtime strategies (vanilla tool calling, retry-only, schema-only, \system) on three public benchmark task families (\mbox{$\tau^3$}-bench \textit{airline / retail / telecom} and AgentChangeBench \textit{airline / retail}) under controlled concurrency, repeated trials, and injected faults. Every experiment writes a machine-readable JSONL row keyed by task, run, method, ablation, adapter mode, and concurrency.
 
-\textbf{Real benchmark data, real LLM.} The main matrix uses the \emph{public} \mbox{$\tau^3$}-bench task fixtures (\texttt{data/external/tau2-bench}) and AgentChangeBench fixtures (\texttt{data/external/AgentChangeBench}) cloned at their upstream GitHub SHAs. The runtime adapters drive a live Qwen3-8B endpoint served by vLLM~0.23.0 with \texttt{--enforce-eager --gpu-memory-utilization 0.20} so the harness can co-tenant on the shared GPU. Every run is recorded with \texttt{benchmark\_adapter\_mode="external"}, the customer goal text, the domain policy, and the tool inventory are passed verbatim into the prompt, and the public \texttt{evaluation\_criteria.nl\_assertions} drive the scoring.
+\textbf{Real benchmark data, real LLM.} The main matrix uses public \mbox{$\tau^3$}-bench and AgentChangeBench task fixtures cloned at their upstream GitHub SHAs. The runtime adapters drive a live Qwen3-8B endpoint served by vLLM~0.23.0 with constrained GPU memory so the harness can co-tenant on the shared GPU. Every run is recorded in external adapter mode; the customer goal, domain policy, and tool inventory are passed verbatim into the prompt, and public natural-language assertions drive the scoring.
 
 \subsection{Main Matrix}
 
@@ -23,7 +23,7 @@ Table~\ref{tab:main} reports the per-method averages over the full \mbox{$\tau^3
 
 \begin{table}[t]
     \centering
-    \caption{Main \mbox{$\tau^3$}-bench results, weighted across 216 tasks per method over airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2. The full artifact ships in \texttt{paper/aamas2026/tables/main\_tau3\_results.csv}.}
+    \caption{Main \mbox{$\tau^3$}-bench results, weighted across 216 tasks per method over airline + retail + telecom, concurrency 1/5 and fault rates 0/0.1/0.2.}
     \label{tab:main}
     \resizebox{\columnwidth}{!}{%
     \begin{tabular}{lrrrr}
@@ -43,7 +43,7 @@ Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matri
 
 \begin{table}[t]
     \centering
-    \caption{Runtime-stability metrics aggregated over the main matrix. The full artifact is \texttt{paper/aamas2026/tables/runtime\_stability\_metrics.csv}.}
+    \caption{Runtime-stability metrics aggregated over the main matrix.}
     \label{tab:runtime}
     \resizebox{\columnwidth}{!}{%
     \begin{tabular}{lrrrr}
@@ -117,7 +117,7 @@ The minimum ablation set disables one \system{} component at a time. Removing th
 
 \begin{table}[t]
     \centering
-    \caption{Evidence status for the current artifact. The status is updated by \texttt{finalize\_suite.py} and the \texttt{audit\_results} gate. See \texttt{paper/aamas2026/tables/evidence\_status.csv} for the live ledger.}
+    \caption{Evidence status for the current artifact. The status is updated by the finalization script and audit gate.}
     \label{tab:evidence-status}
     \begin{tabular}{lll}
         \toprule
@@ -134,10 +134,10 @@ The minimum ablation set disables one \system{} component at a time. Removing th
 
 \subsection{Reproduction and Audit}
 
-The full experiment can be re-run end-to-end on the GPU server by following \texttt{docs/aamas/experiment\_runbook.md}. Once the GPU output directory has been copied locally, the paper-facing artifacts are regenerated with:
+The full experiment can be re-run end-to-end on the GPU server by following the runbook. Once the GPU output directory has been copied locally, the paper-facing artifacts are regenerated with:
 
 \begin{verbatim}
 ./scripts/finalize_submission.sh --local-only
 \end{verbatim}
 
-For a fresh GPU run, execute \texttt{./scripts/wait\_for\_gpu\_idle.sh} followed by \texttt{./scripts/finalize\_submission.sh}. The audit gate fails fast if matrix coverage, methods, or benchmarks are missing. Replacing the vLLM endpoint with the public OpenAI API is a one-line environment change (\texttt{LLM\_BASE\_URL}); the rest of the harness stays the same.
+For a fresh GPU run, execute the wait script followed by the finalization script. The audit gate fails fast if matrix coverage, methods, or benchmarks are missing. Replacing the vLLM endpoint with the public OpenAI API only changes the model endpoint environment variable; the rest of the harness stays the same.
