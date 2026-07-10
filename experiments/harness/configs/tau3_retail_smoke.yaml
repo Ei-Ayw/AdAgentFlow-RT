@@ -1,0 +1,7 @@
+benchmark: tau3
+domain: retail
+num_tasks: 3
+num_trials: 1
+max_concurrency: 1
+methods: [vanilla, retry_only, schema_only, adagentflow_rt]
+stress: none

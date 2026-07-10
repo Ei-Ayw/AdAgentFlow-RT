@@ -47,11 +47,12 @@ logs/*.log
 *.log
 
 # Local run reports
+reports/
 reports/load_test_report.md
 reports/metrics.json
 
-# Symlinks to large external dataset checkouts (the symlinks themselves
-# are tracked in supplementary/, but the checkouts themselves are not vendored)
+# External dataset checkouts/symlinks are local-only and not vendored.
+data/external/
 data/external/tau2-bench/
 data/external/AgentChangeBench/
 

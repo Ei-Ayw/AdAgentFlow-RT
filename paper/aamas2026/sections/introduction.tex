@@ -8,7 +8,7 @@ This work makes three claims. First, runtime contracts should cover schemas, sem
 
 The main matrix is run against the live Qwen3-8B endpoint served by vLLM 0.23.0 and the public \mbox{$\tau^3$}-bench and AgentChangeBench task fixtures. Vanilla tool calling produces zero compliant completions and is therefore dead-lettered 100\% of the time; \system{} is the only configuration with non-zero recovery success (12.2\%) and the lowest cost per successful task among the recovery-capable baselines. Crucially, all four configurations report a \emph{zero} silent-failure rate on the live LLM across 1{,}392 runs, validating the central paper claim: the contract monitor catches every off-policy output and routes it to either a bounded recovery action or an explicit dead-letter event.
 
-The key distinction from a benchmark paper is that the workload is not new. tau2-bench / tau3-bench and AgentChangeBench provide public task environments and native evaluation signals~\cite{tau2bench,agentchangebench}. \system contributes the execution substrate around those tasks: contract enforcement, fault localization, bounded recovery, dead-letter handling, and trace-derived reliability metrics.
+The key distinction from a benchmark paper is that the workload is not new. tau2-bench / \mbox{$\tau^3$}-bench and AgentChangeBench provide public task environments and native evaluation signals~\cite{tau2bench,agentchangebench}. \system contributes the execution substrate around those tasks: contract enforcement, fault localization, bounded recovery, dead-letter handling, and trace-derived reliability metrics.
 
 This paper makes the following contributions:
 
@@ -19,4 +19,4 @@ This paper makes the following contributions:
     \item A reliability metric suite that complements benchmark-native success with dead-letter rate, recovery success, retry amplification, silent failure rate, fault propagation depth, contaminated artifact count, and mean time to detect and recover.
 \end{itemize}
 
-The current artifact includes a deterministic smoke harness and external command planning for tau2-bench / tau3-bench and AgentChangeBench. Full benchmark-scale experiments are planned after smoke validation, following the protocol in Section~\ref{sec:evaluation}.
+The current artifact includes deterministic smoke tests for development and an audited external main matrix for tau2-bench / \mbox{$\tau^3$}-bench and AgentChangeBench. The paper claims in Section~\ref{sec:experiments} are generated from the external matrix rather than smoke rows.
