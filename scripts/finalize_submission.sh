@@ -79,7 +79,6 @@ if command -v zip >/dev/null 2>&1; then
     app/runtime/ \
     app/services/llm_client.py \
     experiments/harness/ \
-    README.md \
     requirements.txt \
     supplementary/README.md \
   )

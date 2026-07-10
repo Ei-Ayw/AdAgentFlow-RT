@@ -15,7 +15,7 @@ AdAgentFlow-RT: A Contractual Runtime for Reliable High-Throughput Long-Horizon 
 
 ## Scope
 
-The project does not create a new benchmark dataset. Public benchmarks provide task environments and native metrics. AdAgentFlow-RT contributes the runtime substrate and a stress/evaluation layer for production reliability.
+The project does not create a new benchmark dataset. Public benchmarks provide task environments and fixture metadata; the current artifact uses assertion-based wrapper scoring rather than a full benchmark-native simulator rerun. AdAgentFlow-RT contributes the runtime substrate and a stress/evaluation layer for production reliability.
 
 The existing advertising workflow should be retained as a domain plugin/example, not the main abstraction.
 

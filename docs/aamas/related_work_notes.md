@@ -4,11 +4,11 @@ These notes keep the paper narrative anchored on runtime reliability rather than
 
 ## Agent Benchmarks
 
-Public benchmarks such as tau2-bench / tau3-bench and AgentChangeBench are workload providers in this project. They evaluate task completion, tool-use behavior, policy compliance, and goal-change recovery. AdAgentFlow-RT should preserve their native metrics while adding production runtime metrics.
+Public benchmarks such as tau2-bench / tau3-bench and AgentChangeBench are workload providers in this project. They evaluate task completion, tool-use behavior, policy compliance, and goal-change recovery. The current artifact preserves task fixtures and metric fields while adding production runtime metrics; a full benchmark-native simulator rerun remains future validation.
 
 Positioning:
 
-- We do not replace benchmark-native evaluators.
+- We do not replace benchmark-native evaluators; current scoring is fixture-backed.
 - We do not mutate benchmark task data.
 - We add concurrency, fault injection, recovery budgets, and trace analysis around public tasks.
 

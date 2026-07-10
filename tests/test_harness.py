@@ -23,7 +23,9 @@ from experiments.harness.metrics.trace_metrics import compute_trace_metrics
 from experiments.harness.plot_results import build_figure_rows, write_ablation_table, write_figures
 from experiments.harness.refresh_paper_artifacts import refresh_paper_artifacts
 from experiments.harness.run_suite import build_suite_plan
+from experiments.harness.metrics.benchmark_metrics import compute_benchmark_metrics
 from experiments.harness.runtime_adapters.adagentflow_rt import AdAgentFlowRTAdapter
+from experiments.harness.runtime_adapters.base import RuntimeResult, stable_task_seed
 from experiments.harness.stressors.schema_drift import SchemaDriftStressor
 from experiments.harness.validate_suite import validate_suite_config
 from experiments.harness.workload.concurrency_runner import run_tasks
@@ -345,6 +347,53 @@ def test_import_external_results_jsonl_feeds_existing_aggregator(tmp_path):
     assert rows[1].dead_letter is False
     assert metrics["total_tasks"] == 2
     assert metrics["task_success_rate"] == 0.5
+
+
+def test_runtime_metrics_mark_cost_undefined_when_no_successes():
+    rows = [
+        RuntimeResult(
+            benchmark="tau3",
+            domain="airline",
+            task_id="t1",
+            trial_id=0,
+            method="vanilla",
+            run_id="r1",
+            success=False,
+            native_metrics={"task_success": False},
+            llm_calls=1,
+            tool_calls=2,
+            attempts=1,
+            dead_letter=True,
+        )
+    ]
+
+    metrics = compute_runtime_metrics(rows)
+
+    assert metrics["cost_per_successful_task"] is None
+
+
+def test_benchmark_metrics_use_actual_policy_compliance_when_present():
+    rows = [
+        RuntimeResult(
+            benchmark="tau3",
+            domain="airline",
+            task_id="t1",
+            trial_id=0,
+            method="schema_only",
+            run_id="r1",
+            success=False,
+            native_metrics={"policy_compliance_expected": True, "policy_compliance": 0.0},
+        )
+    ]
+
+    metrics = compute_benchmark_metrics(rows)
+
+    assert metrics["policy_compliance"] == 0.0
+
+
+def test_stable_task_seed_is_process_independent():
+    assert stable_task_seed("tau3_airline_1", "adagentflow_rt") == stable_task_seed("tau3_airline_1", "adagentflow_rt")
+    assert stable_task_seed("tau3_airline_1", "adagentflow_rt") != stable_task_seed("tau3_airline_1", "retry_only")
 
 
 def test_import_external_results_attaches_matrix_metadata(tmp_path):

@@ -13,11 +13,11 @@ We focus on failures that appear at runtime boundaries:
     \item \textbf{Coordination failures}: duplicate node execution, stale context, missing dependency artifacts, and inconsistent downstream state.
     \item \textbf{Resource failures}: latency, token, tool-call, or retry budgets exceeded during long-horizon execution.
     \item \textbf{Environment failures}: tool timeouts, rate limits, partial responses, and worker crashes.
-    \item \textbf{Silent failures}: runtime success states that disagree with benchmark-native evaluation.
+    \item \textbf{Silent failures}: runtime success states that disagree with the fixture-backed task scorer.
 \end{itemize}
 
 These failures motivate runtime-level guarantees that are orthogonal to model capability. A stronger model may complete more tasks, but a production runtime still needs traceability, bounded recovery, and controlled failure containment.
 
 \subsection{Why Public Benchmarks Are Still Needed}
 
-The harness deliberately uses public benchmarks instead of creating a new dataset. Public tasks provide comparability and established native metrics. The harness adds stress dimensions around them: concurrency, repeated trials, injected tool faults, schema drift, duplicate execution, stale context, and recovery budgets. This separation lets the paper ask a runtime question without weakening the benchmark question.
+The harness deliberately uses public benchmarks instead of creating a new dataset. Public tasks provide comparability and established task metadata. The current artifact uses fixture-backed assertion scoring rather than a full benchmark-native simulator rerun. The harness adds stress dimensions around the same task fixtures: concurrency, repeated trials, injected tool faults, schema drift, duplicate execution, stale context, and recovery budgets. This separation lets the paper ask a runtime question without weakening the benchmark question.

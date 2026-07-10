@@ -7,7 +7,7 @@ some drift but not semantic violations.
 from __future__ import annotations
 
 from experiments.harness.runtime_adapters._core import evaluate_task
-from experiments.harness.runtime_adapters.base import RuntimeAdapter
+from experiments.harness.runtime_adapters.base import RuntimeAdapter, stable_task_seed
 
 
 class SchemaOnlyAdapter(RuntimeAdapter):
@@ -17,7 +17,7 @@ class SchemaOnlyAdapter(RuntimeAdapter):
         return evaluate_task(
             task=task,
             method=self.method_name,
-            seed=hash((task.task_id, self.method_name)) & 0xFFFFFFFF,
+            seed=stable_task_seed(task.task_id, self.method_name),
             stressors=stressors,
             runtime_config=runtime_config,
         )

@@ -33,6 +33,6 @@ Production-Stress Harness: runs benchmark tasks through comparable runtime strat
 7. Localize faults when violations occur.
 8. Select bounded recovery or dead-letter.
 9. Emit machine-readable trace events.
-10. Aggregate benchmark-native and runtime-stability metrics.
+10. Aggregate fixture-backed task scores and runtime-stability metrics.
 
 The runtime initially supports sequential execution, fan-out, joins, fallback branches, and rollback targets in an in-memory implementation. Integration with the existing orchestrator is intentionally deferred until the skeleton is testable.

@@ -57,7 +57,7 @@ def compute_runtime_metrics(results: Iterable[RuntimeResult]) -> Dict[str, Any]:
         "retry_amplification_factor": attempts / total if total else 0.0,
         "extra_tool_calls": sum(max(0, row.tool_calls - 2) for row in rows),
         "extra_llm_calls": sum(max(0, row.llm_calls - 1) for row in rows),
-        "cost_per_successful_task": total_cost / successes if successes else 0.0,
+        "cost_per_successful_task": total_cost / successes if successes else None,
         "fault_propagation_depth": max(
             [row.runtime_metrics.get("fault_propagation_depth", 0) for row in rows]
             + [metrics["fault_propagation_depth"] for metrics in trace_metrics],

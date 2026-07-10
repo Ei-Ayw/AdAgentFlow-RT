@@ -4,7 +4,7 @@ This work relates to agent benchmarks, multi-agent frameworks, runtime verificat
 
 \subsection{Agent Benchmarks}
 
-Agent benchmarks evaluate task completion, tool-use correctness, policy compliance, and goal-change behavior. This work treats tau2-bench / \mbox{$\tau^3$}-bench and AgentChangeBench~\cite{tau2bench,agentchangebench} as workload providers rather than datasets to replace. The harness preserves native metrics and adds runtime-stability metrics around the same tasks.
+Agent benchmarks evaluate task completion, tool-use correctness, policy compliance, and goal-change behavior. This work treats tau2-bench / \mbox{$\tau^3$}-bench and AgentChangeBench~\cite{tau2bench,agentchangebench} as workload providers rather than datasets to replace. The current harness preserves task fixtures and metric fields, uses assertion-based wrapper scoring, and adds runtime-stability metrics around the same tasks; a full benchmark-native simulator rerun is future validation rather than a current claim.
 
 \subsection{Multi-Agent Frameworks}
 

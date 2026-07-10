@@ -1,6 +1,6 @@
 # AdAgentFlow-RT AAMAS 2026 Supplementary Material
 
-This zip contains the full artifact for the AAMAS 2026 paper
+This zip contains the review artifact for the AAMAS 2026 paper
 "AdAgentFlow-RT: A Contractual Runtime for Reliable High-Throughput
 Long-Horizon Multi-Agent Workflows". It is regenerable end-to-end from the
 scripts in `experiments/harness/` and the runbook in `docs/aamas/experiment_runbook.md`.
@@ -14,8 +14,8 @@ paper/                     # LaTeX source + bibliography + tables + figures
   sections/                # 10 section files (abstract, intro, method, system,
                            #  evaluation, experiments, discussion, related work,
                            #  conclusion, background)
-  tables/                  # Six CSV tables, all generated from real-LLM runs
-  figs/                    # Eight PDF figures, all generated from real-LLM runs
+  tables/                  # Generated CSV tables from the audited live-LLM matrix
+  figs/                    # Generated PDF/CSV figures from the audited live-LLM matrix
 
 experiments/
   harness/                 # Production-stress harness
@@ -29,7 +29,7 @@ experiments/
     audit_results.py       # Gate (--require-external-main --require-agentchange)
     stressors/             # 7 production stressors
     metrics/               # Reliability metric implementations
-  results/main/real_full/  # 552 JSONL rows + summary.json + run_plan.json + audit.json
+  results/main/real_full_v2/  # JSONL rows + summary.json + run_plan.json + audit.json
 
 docs/aamas/                # 6 research/design/runbook markdown docs
 
@@ -40,13 +40,14 @@ app/
 
 requirements.txt           # Pinned deps
 pyproject.toml             # Project metadata
-README.md                  # Project overview
+supplementary/README.md    # This artifact description
 ```
 
 ## Reproducing the main matrix
 
-The full 552-row, 32-run matrix completes in approximately two hours on a
-single Qwen3-8B endpoint served by vLLM 0.23.0:
+The audited review matrix contains 1,392 live-LLM rows and 116 summary rows.
+It completes in approximately four hours on a single Qwen3-8B endpoint served
+by vLLM 0.23.0:
 
 ```bash
 # 1. Start vLLM (on the GPU server)
@@ -65,23 +66,25 @@ pip install -r requirements.txt
 export LLM_BASE_URL=http://localhost:8000/v1
 export LLM_MODEL=Qwen3-8B
 .venv/bin/python -m experiments.harness.run_real_external \
-  --output-dir experiments/results/main/real_full \
-  --num-tasks 3 --num-trials 2 --concurrencies 1,5 --fault-rates 0.0,0.2
+  --output-dir experiments/results/main/real_full_v2 \
+  --num-tasks 6 --num-trials 2 --concurrencies 1,5 --fault-rates 0.0,0.1,0.2
 
 # 4. Aggregate + refresh + audit
 .venv/bin/python -m experiments.harness.aggregate_suite \
-  --suite-dir experiments/results/main/real_full \
-  --json-output experiments/results/main/real_full/summary.json
+  --suite-dir experiments/results/main/real_full_v2 \
+  --json-output experiments/results/main/real_full_v2/summary.json
 .venv/bin/python -m experiments.harness.refresh_paper_artifacts \
-  --summary experiments/results/main/real_full/summary.json
+  --summary experiments/results/main/real_full_v2/summary.json
 .venv/bin/python -m experiments.harness.audit_results \
-  --summary experiments/results/main/real_full/summary.json \
+  --summary experiments/results/main/real_full_v2/summary.json \
   --require-external-main --require-agentchange
 ```
 
 The audit gate fails fast if the matrix coverage, methods, or benchmarks are
 missing. Replacing the vLLM endpoint with the public OpenAI API is a one-line
 environment change (`LLM_BASE_URL`); the rest of the harness stays the same.
+The scoring is fixture-backed and assertion-based; it preserves public task
+data but should not be presented as a full benchmark-native simulator rerun.
 
 ## License
 

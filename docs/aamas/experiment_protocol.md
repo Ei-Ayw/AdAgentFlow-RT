@@ -59,7 +59,7 @@ If cost is too high, compress to airline and retail, 20 tasks/domain, 2 trials, 
 
 ## Metrics
 
-Benchmark-native metrics:
+Fixture-backed task metrics:
 
 - task success / pass rate
 - tool action correctness

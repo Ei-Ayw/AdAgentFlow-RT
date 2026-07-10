@@ -113,9 +113,11 @@ For mock smoke runs, omit the `--require-*` flags and treat warnings as scope ma
 The four runtime strategies are LLM-backed: they call `SyncLLMClient` (in
 `experiments.harness.llm`) against any OpenAI-compatible endpoint, falling
 back to a deterministic simulator when no endpoint is reachable. The simulator
-is biased per method so the four strategies produce genuinely distinguishable
-results (vanilla reports higher self-success but is silently wrong; full
-AdAgentFlow-RT has 0% silent failures and the lowest cost per successful task).
+is biased per method so the four strategies produce distinguishable rows for
+pipeline testing, but simulator rows must not be used as paper evidence. In the
+audited live-LLM matrix, schema-only slightly leads raw task success, while the
+full runtime is distinguished by non-zero bounded recovery and lower cost per
+successful task than retry-only.
 
 To point the harness at a real endpoint (e.g. the GPU server's vLLM Qwen3-8B):
 
@@ -240,7 +242,7 @@ For AgentChangeBench:
   --stress none
 ```
 
-The importer preserves benchmark-native metric fields such as `TSR`, `TUE`, `TCRR`, `GSRT`, `task_success`, and `policy_compliance`, and maps common fields such as `task_id`, `example_id`, `success`, `passed`, `latency_ms`, `duration_ms`, `tool_calls`, and `num_tool_calls` into the common `RuntimeResult` row format.
+The importer preserves metric fields such as `TSR`, `TUE`, `TCRR`, `GSRT`, `task_success`, and `policy_compliance`, and maps common fields such as `task_id`, `example_id`, `success`, `passed`, `latency_ms`, `duration_ms`, `tool_calls`, and `num_tool_calls` into the common `RuntimeResult` row format. For the current paper artifact, these are fixture-backed and assertion-based rows rather than a full benchmark-native simulator rerun.
 Pass `suite-run`, `max-concurrency`, `fault-rate`, `stress`, and `ablation` during import when the external benchmark output does not already contain those fields; otherwise concurrency and fault-rate figures will not have the required grouping keys.
 
 ## Required Artifacts

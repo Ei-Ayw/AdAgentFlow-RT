@@ -3,7 +3,7 @@
 
 We evaluate four runtime strategies (vanilla tool calling, retry-only, schema-only, \system) on three public benchmark task families (\mbox{$\tau^3$}-bench \textit{airline / retail / telecom} and AgentChangeBench \textit{airline / retail}) under controlled concurrency, repeated trials, and injected faults. Every experiment writes a machine-readable JSONL row keyed by task, run, method, ablation, adapter mode, and concurrency.
 
-\textbf{Real benchmark data, real LLM.} The main matrix uses public \mbox{$\tau^3$}-bench and AgentChangeBench task fixtures cloned at their upstream GitHub SHAs. The runtime adapters drive a live Qwen3-8B endpoint served by vLLM~0.23.0 with constrained GPU memory so the harness can co-tenant on the shared GPU. Every run is recorded in external adapter mode; the customer goal, domain policy, and tool inventory are passed verbatim into the prompt, and public natural-language assertions drive the scoring.
+\textbf{Real benchmark data, real LLM.} The main matrix uses public \mbox{$\tau^3$}-bench and AgentChangeBench task fixtures cloned at their upstream GitHub SHAs. The runtime adapters drive a live Qwen3-8B endpoint served by vLLM~0.23.0 with constrained GPU memory so the harness can co-tenant on the shared GPU. Every run is recorded in external adapter mode; the customer goal, domain policy, and tool inventory are passed into the prompt, and public natural-language assertions drive fixture-backed scoring. This is not yet a full benchmark-native simulator execution, so we use the results as a production-stress harness study rather than a new benchmark leaderboard.
 
 \subsection{Main Matrix}
 
@@ -19,7 +19,7 @@ The full matrix produces 1{,}392 JSONL rows across 39 runs (84 \mbox{$\tau^3$}-b
 
 \subsection{Main Results}
 
-Table~\ref{tab:main} reports the per-method averages over the full \mbox{$\tau^3$}-bench main matrix, weighted by the number of tasks per cell. Vanilla tool calling produces no compliant JSON against the live LLM and therefore reports \emph{zero} task success and a 100\% dead-letter rate. \system{} is the only configuration with non-zero recovery success (12.2\%) and the lowest dead-letter rate (86.9\%) among the recovery-capable baselines; it also pays roughly half the cost per successful task of retry-only.
+Table~\ref{tab:main} reports the per-method averages over the full \mbox{$\tau^3$}-bench main matrix, weighted by the number of tasks per cell. Vanilla tool calling produces no compliant completions against the live LLM and is therefore dead-lettered for every run. Schema-only validation has the highest raw task success in this matrix, narrowly ahead of the full runtime. The full runtime's distinctive result is different: it is the only configuration with non-zero bounded recovery, and it reduces cost per successful task relative to retry-only while making violations explicit in the trace.
 
 \begin{table}[t]
     \centering
@@ -31,15 +31,15 @@ Table~\ref{tab:main} reports the per-method averages over the full \mbox{$\tau^3
         Method & Task success & Dead-letter & Recovery & Cost / success \\
         \midrule
         Vanilla              & 0.00 & 1.00 & 0.00 & -- \\
-        Retry-only           & 0.12 & 0.88 & 0.00 & 37.19 \\
-        Schema-only          & 0.15 & 0.85 & 0.00 & 16.55 \\
-        \system{} (full)     & \textbf{0.13} & \textbf{0.87} & \textbf{0.12} & \textbf{16.49} \\
+        Retry-only           & 0.12 & 0.88 & 0.00 & 59.19 \\
+        Schema-only          & \textbf{0.15} & \textbf{0.85} & 0.00 & 34.24 \\
+        \system{} (full)     & 0.15 & 0.85 & \textbf{0.15} & \textbf{27.00} \\
         \bottomrule
     \end{tabular}
     }
 \end{table}
 
-Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matrix. \emph{All four configurations} report a silent-failure rate of zero on the live LLM, which is the central paper claim: the contract monitor catches every vanilla off-policy output and routes it to either a bounded recovery action or a dead-letter event. \system{} additionally records the violation, localizes it, and (with the full method) recovers 12.2\% of the time.
+Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matrix. \emph{All four configurations} report a silent-failure rate of zero on the live LLM, so this number should not be read as evidence that the full runtime uniquely prevents silent failure. The stronger evidence is that schema-only and full runtime expose contract violations, and only the full runtime connects those violations to bounded recovery actions in the event trace.
 
 \begin{table}[t]
     \centering
@@ -53,7 +53,7 @@ Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matri
         Vanilla              & \textbf{0.00} & 0.00 & 1.00 & 0.00 \\
         Retry-only           & \textbf{0.00} & 0.00 & 0.88 & 3.00 \\
         Schema-only          & \textbf{0.00} & \textbf{1.00} & 0.85 & 1.00 \\
-        \system{} (full)     & \textbf{0.00} & \textbf{0.90} & 0.87 & \textbf{1.40} \\
+        \system{} (full)     & \textbf{0.00} & \textbf{1.00} & 0.85 & \textbf{1.40} \\
         \bottomrule
     \end{tabular}
     }
@@ -91,9 +91,9 @@ Table~\ref{tab:runtime} reports the runtime-stability metrics for the same matri
     \label{fig:cost}
 \end{figure}
 
-\subsection{AgentChangeBench Recovery}
+\subsection{AgentChangeBench Diagnostic Supplement}
 
-The AgentChangeBench supplement measures target-change recovery rate (TCRR) and goal-shift recovery time (GSRT) under the same stressors. \system{} achieves the lowest GSRT (2.0 actions per goal shift vs.\ 7.1 for vanilla) while TCRR is held constant across methods by the public benchmark's definition.
+The AgentChangeBench supplement measures target-change recovery rate (TCRR) and goal-shift recovery time (GSRT) under the same stressors. In this artifact, all AgentChangeBench task-success rates are zero and dead-letter rates are one, so the result is diagnostic rather than a main success claim. \system{} achieves the lowest measured GSRT (2.0 actions per goal shift vs.\ 7.1 for vanilla), but the absence of successful goal-change completions means this figure should be treated as evidence about bounded action count, not task-level recovery.
 
 \begin{figure}[t]
     \centering
@@ -105,7 +105,7 @@ The AgentChangeBench supplement measures target-change recovery rate (TCRR) and 
 
 \subsection{Ablation Study}
 
-The minimum ablation set disables one \system{} component at a time. Removing the contract monitor collapses recovery success to zero (the localizer and recovery controller have nothing to act on); removing the fault localizer inflates cost without improving success. The full method is the only configuration that simultaneously achieves zero silent failures \emph{and} non-zero recovery success.
+The minimum ablation set disables one \system{} component at a time. Removing the contract monitor collapses recovery success to zero because the localizer and recovery controller have no explicit violation event to act on; removing the fault localizer inflates cost without improving success. The full method is the only configuration with non-zero bounded recovery in the ablation matrix, while zero silent failure is shared across methods in the current scoring setup.
 
 \begin{figure}[t]
     \centering
