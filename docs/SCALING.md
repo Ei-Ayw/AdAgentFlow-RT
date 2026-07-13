@@ -1,6 +1,5 @@
 # AdAgentFlow 扩容与降级方案
 
-> 配套简历 bullet 6"高请求量场景下的扩容与降级方案"。
 > 基于实测压测数据（`reports/load_test_report.md`）总结。
 
 ---

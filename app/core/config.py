@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     anthropic_default_sonnet_model: str = "MiniMax-M3"
     llm_timeout: int = 30
     llm_max_retries: int = 3
-    use_mock_llm: bool = True  # 没配模型时自动 mock
+    use_mock_llm: bool = False  # 没配模型时自动 mock
 
     # ===== Database =====
     database_url: str = "postgresql://adagent:adagent_secret_2026@localhost:5432/adagentflow"

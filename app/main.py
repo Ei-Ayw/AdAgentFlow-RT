@@ -18,6 +18,8 @@ from app import models  # noqa
 logger = get_logger()
 
 
+# @asynccontextmanager把这个 async def 函数包装成一个异步上下文管理器，FastAPI 会把 yield 之前的代码当作“启动阶段”，yield 之后的代码当作“关闭阶段”
+# lifespan 不是普通函数，而是给 FastAPI/ASGI 框架用的生命周期上下文
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI 启动 / 关闭钩子"""

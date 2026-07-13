@@ -17,12 +17,21 @@ from app.services.orchestrator import get_orchestrator
 
 logger = get_logger()
 
+# worker 监听的 topic 列表
 HEAVY_TOPICS = [
     "ad_task.repair",
 ]
 
 
 class HeavyWorker:
+    """
+    初始化一个 worker 实例。
+    1. get_queue_client() 拿到 RabbitMQ 客户端单例。
+    2. get_orchestrator() 拿到工作流编排器单例。
+    3. WORKER_CONCURRENCY 控制 worker 并发，默认 2。
+    4. _running 是停止开关。
+    5. _consumer_tasks 保存每个 topic 对应的消费协程。
+    """
     def __init__(self):
         self.queue = get_queue_client()
         self.orchestrator = get_orchestrator()
@@ -31,12 +40,16 @@ class HeavyWorker:
         self._consumer_tasks: List[asyncio.Task] = []
 
     async def run(self):
+        # 连接 RabbitMQ
         await self.queue.connect()
+        # 开始工作
         self._running = True
         channel = self.queue._channel
+        # 控制 broker 一次发多少未 ack 消息给这个 consumer，防止一次压太多任务
         await channel.set_qos(prefetch_count=self.concurrency * 2)
 
         for topic in HEAVY_TOPICS:
+            # 每个 topic 启一个独立消费任务
             t = asyncio.create_task(self._consume_topic(topic))
             self._consumer_tasks.append(t)
 
@@ -45,15 +58,24 @@ class HeavyWorker:
         )
 
         try:
+            # 多个 topic，并行消费，把多个异步任务同时跑，等它们都结束后再返回
+            # *self._consumer_tasks 是解包，会变成：task1, task2, task3
             await asyncio.gather(*self._consumer_tasks)
         except asyncio.CancelledError:
             logger.info("Heavy Worker 收到取消信号")
 
+    """
+    等待所有 consumer 任务结束
+    正常情况下它会一直挂着，直到被取消或发生异常
+    """
     async def _consume_topic(self, topic: str):
+        # 把 topic 名转成队列名，比如 ad_task.repair.queue
         queue_name = f"{topic}.queue"
         channel = self.queue._channel
         queue = None
         for _ in range(5):
+            # 最多等 5 次，每次 1 秒，尝试拿队列
+            # ensure=False 表示这里只是查有没有，不主动创建。
             queue = await channel.get_queue(queue_name, ensure=False)
             if queue is not None:
                 break
@@ -61,23 +83,35 @@ class HeavyWorker:
         if queue is None:
             logger.warning(f"队列 {queue_name} 不存在")
             return
+        # 监听队列，异步迭代消息，用队列迭代器持续消费消息
         async with queue.iterator() as q_iter:
             async for message in q_iter:
                 if not self._running:
                     break
+                # 用队列迭代器持续消费消息
                 await self._handle_message(message)
 
+    """
+    消息处理上下文。
+    1、正常结束会 ack。
+    2、如果上下文里抛异常，requeue=False 表示不要重新入队，通常会被拒绝或进入死信链路，取决于队列配置。
+    """
     async def _handle_message(self, message: AbstractIncomingMessage):
         async with message.process(requeue=False):
             try:
                 body = json.loads(message.body.decode("utf-8"))
             except Exception:
                 return
+            # 从消息里取出任务 ID、步骤 ID 和业务负载
             task_id = body.get("task_id")
             step_id = body.get("step_id")
             payload = body.get("payload", {})
+            # 真正执行 step
+            # 调用 orchestrator.execute_step()，它会根据 step_id 找到对应的 step handler 并执行。
             try:
                 await self.orchestrator.execute_step(task_id, step_id, payload)
+            # 把 orchestrator 的异常吞掉了，只记日志
+            # 不过，worker 本身不会因为执行失败而让消息重新抛出，所以最终消息层面可能仍然被 ack
             except Exception as e:
                 logger.error(f"heavy worker execute_step 异常: {e}")
 
@@ -90,17 +124,22 @@ class HeavyWorker:
 
 async def main():
     worker = HeavyWorker()
+    # 拿当前事件循环
     loop = asyncio.get_event_loop()
 
     def _shutdown():
         logger.info("收到 SIGINT, heavy worker 停止")
         asyncio.create_task(worker.stop())
 
+    # 收到退出信号时，异步触发停止流程
     for sig in (signal.SIGINT, signal.SIGTERM):
+        # 给 Ctrl+C 和终止信号挂上处理器。
+        # 某些平台不支持 signal handler，所以捕获 NotImplementedError
         try:
             loop.add_signal_handler(sig, _shutdown)
         except NotImplementedError:
             pass
+    # 启动主消费逻辑
     await worker.run()
 
 
