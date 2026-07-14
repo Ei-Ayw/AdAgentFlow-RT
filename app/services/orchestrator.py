@@ -291,7 +291,7 @@ class WorkflowOrchestrator:
                 step.token_cost = result.input_tokens + result.output_tokens
                 step.model_name = result.model
                 step.prompt_version = result.prompt_version
-                step.finished_at = __import__("datetime").datetime.utcnow()
+                step.finished_at = datetime.datetime.now(datetime.timezone.utc)
 
         # 注：step.success trace 已由 agent.run() 内部写入
         # 这里只写 task_step 状态推进，trace 不重复写
@@ -346,7 +346,7 @@ class WorkflowOrchestrator:
                 step.status = StepStatus.FAILED.value
                 step.failure_reason = result.failure_reason
                 step.error_message = result.error_message
-                step.finished_at = __import__("datetime").datetime.utcnow()
+                step.finished_at = datetime.datetime.now(datetime.timezone.utc)
                 step.retry_count = (step.retry_count or 0) + 1
                 # 把失败时已消耗的 token / latency 也记上
                 if result.latency_ms:
