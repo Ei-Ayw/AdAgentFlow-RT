@@ -85,6 +85,8 @@ class TaskDetailResponse(BaseModel):
     created_at: Optional[str]
     updated_at: Optional[str]
     finished_at: Optional[str]
+    selling_points: Optional[List[str]] = None
+    target_user: Optional[str] = None
     steps: List[StepStatus] = []
     output_payload: Optional[dict] = None
 
@@ -111,6 +113,8 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
         duration=task.duration,
         retry_count=task.retry_count or 0,
         last_failure_reason=task.last_failure_reason,
+        selling_points=task.selling_points or [],
+        target_user=task.target_user,
         created_at=task.created_at.isoformat() if task.created_at else None,
         updated_at=task.updated_at.isoformat() if task.updated_at else None,
         finished_at=task.finished_at.isoformat() if task.finished_at else None,

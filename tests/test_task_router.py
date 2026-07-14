@@ -2,6 +2,7 @@
 
 覆盖：GET /api/v1/tasks/ 列表端点返回的字段集合。
 - 回归测试：list 必须返回 duration 字段（前端 TaskCard.js 依赖它）。
+- 回归测试：detail 必须返回 selling_points 字段（前端 TaskDetailPage 重生依赖它）。
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ SAMPLE_TASK_ROW = {
     "style": "dramatic before-after ad",
     "duration": 15,
     "target_user": "commuters",
+    "selling_points": ["hands-free cooling", "long battery life"],
     "retry_count": 0,
     "max_retry": 3,
     "last_failure_reason": None,
@@ -57,3 +59,38 @@ class TestListTasks:
             "否则 TaskCard.js 会渲染 'undefineds'。"
         )
         assert item["duration"] == 15
+
+
+class TestGetTaskDetail:
+    def test_detail_includes_selling_points(self, sqlite_db, seeded_task):
+        """回归：detail endpoint 必须返回 selling_points 字段
+        （TaskDetailPage.js 重生操作需要把 selling_points 透传给新 task）。
+        """
+        from app.api.task_router import get_task
+
+        db = sqlite_db["session_local"]()
+        try:
+            response = get_task(task_id=seeded_task.task_id, db=db)
+        finally:
+            db.close()
+
+        assert response.task_id == seeded_task.task_id
+        assert "selling_points" in response.model_dump(), (
+            "GET /api/v1/tasks/{id} 必须返回 selling_points 字段，"
+            "否则 TaskDetailPage 重生时 selling_points 会变空数组。"
+        )
+        assert response.selling_points == ["hands-free cooling", "long battery life"]
+
+    def test_detail_includes_target_user(self, sqlite_db, seeded_task):
+        """回归：detail endpoint 必须返回 target_user 字段
+        （TaskDetailPage.js 重生操作需要把 target_user 透传给新 task）。
+        """
+        from app.api.task_router import get_task
+
+        db = sqlite_db["session_local"]()
+        try:
+            response = get_task(task_id=seeded_task.task_id, db=db)
+        finally:
+            db.close()
+
+        assert response.target_user == "commuters"
