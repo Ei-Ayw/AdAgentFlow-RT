@@ -1,0 +1,44 @@
+:root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --accent: #93c5fd;
+    --success: #10b981;
+    --warn: #f59e0b;
+    --error: #ef4444;
+    --border: rgba(148, 163, 184, 0.25);
+}
+
+.nav-link {
+    color: var(--accent);
+    text-decoration: none;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.nav-link:hover { background: rgba(148, 163, 184, 0.1); }
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.toast {
+    padding: 10px 16px;
+    border-radius: 6px;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    animation: slide-in 0.2s ease;
+}
+
+.toast.error { background: var(--error); }
+.toast.warn { background: var(--warn); color: #1f2937; }
+.toast.success { background: var(--success); }
+
+@keyframes slide-in {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}

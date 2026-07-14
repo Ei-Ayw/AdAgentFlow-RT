@@ -1,0 +1,5 @@
+# JavaScript testing (run via npm; npx will auto-fetch on first use)
+vitest@2.1.5
+@vue/test-utils@2.4.6
+happy-dom@15.11.7
+jsdom@25.0.1

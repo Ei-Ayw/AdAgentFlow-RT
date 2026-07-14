@@ -54,6 +54,9 @@ app.include_router(trace_router, prefix="/api/v1/traces", tags=["traces"])
 # Dashboard 静态文件
 app.mount("/dashboard", StaticFiles(directory="app/dashboard/static"), name="dashboard")
 
+# 业务用户 SPA
+app.mount("/web", StaticFiles(directory="app/web", html=True), name="web")
+
 
 @app.get("/")
 async def root():

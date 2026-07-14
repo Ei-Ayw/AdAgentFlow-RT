@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdAgentFlow · 广告生成</title>
+    <link rel="stylesheet" href="/web/style.css">
+    <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@13.0.3/marked.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+    <div id="app">
+        <header class="border-b border-slate-700 bg-slate-800">
+            <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+                <a href="#/" class="text-lg font-semibold text-slate-100">🎬 AdAgentFlow</a>
+                <nav class="flex gap-2 text-sm">
+                    <a href="#/" class="nav-link">任务列表</a>
+                    <a href="#/submit" class="nav-link">+ 提交新任务</a>
+                </nav>
+            </div>
+        </header>
+        <main id="view" class="max-w-6xl mx-auto px-4 py-6"></main>
+        <div id="toast" class="fixed top-4 right-4 z-50 space-y-2"></div>
+    </div>
+    <script type="module" src="/web/main.js"></script>
+</body>
+</html>
