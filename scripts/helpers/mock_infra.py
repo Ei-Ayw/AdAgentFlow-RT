@@ -606,6 +606,38 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
     async def patched_create_task(self, product):
         from app.services.tracing import generate_task_id, generate_trace_id
         from app.core.state_machine import WORKFLOW_STEPS, STEP_NAME_DISPLAY
+
+        # 反馈重生: 复用上次的 evaluation 反馈
+        feedback_for_task_id = product.get("feedback_for_task_id")
+        style_override = product.get("style_override")
+        feedback_str = ""
+        history_override: Dict[str, Any] = {}
+        start_step = WORKFLOW_STEPS[0]
+
+        if feedback_for_task_id:
+            ev = None
+            for e in reversed(ctx.db.evaluations):
+                if e.task_id == feedback_for_task_id:
+                    ev = e
+                    break
+            if ev is not None:
+                issues_text = "\n".join(
+                    (i.get("detail") if isinstance(i, dict) else str(i))
+                    for i in (ev.issues or [])
+                )
+                feedback_str = (
+                    f"score={ev.score}\n"
+                    f"issues={issues_text}\n"
+                    f"suggested_fix={getattr(ev, 'suggested_fix', '') or ''}"
+                )
+            hist_step = ctx.db.get_step(feedback_for_task_id, "product_analysis")
+            if hist_step and hist_step.output_payload:
+                history_override["product_analysis"] = hist_step.output_payload
+            start_step = "script_generation"
+
+        if style_override:
+            product = {**product, "style": style_override}
+
         task_id = generate_task_id()
         trace_id = generate_trace_id()
         ctx.db.add_task(MockTask(task_id=task_id, trace_id=trace_id,
@@ -613,11 +645,16 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
         for step_id in WORKFLOW_STEPS:
             ctx.db.add_step(MockStep(task_id, step_id,
                                       STEP_NAME_DISPLAY.get(step_id, step_id)))
-        await self.queue.publish_step(
-            task_id, WORKFLOW_STEPS[0],
-            {"task_id": task_id, "trace_id": trace_id, "product": product,
-             "history": {}, "attempt": 1},
-        )
+        payload = {
+            "task_id": task_id,
+            "trace_id": trace_id,
+            "product": product,
+            "history": history_override,
+            "attempt": 1,
+        }
+        if feedback_str:
+            payload["failure_feedback"] = feedback_str
+        await self.queue.publish_step(task_id, start_step, payload)
         return task_id
 
     def patched_transition_task(self, task_id, to_status):

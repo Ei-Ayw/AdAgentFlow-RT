@@ -52,13 +52,58 @@ class WorkflowOrchestrator:
     # 入口 - 创建新任务
     # ============================================================
     async def create_task(self, product: Dict[str, Any]) -> str:
-        """接收新商品信息，写库，推入队列
+        """接收新商品信息，写库，推入队列。
 
-        Returns:
-            task_id
+        支持反馈重生:
+        - product.feedback_for_task_id 非空 → 从 script_generation 起跑,
+          payload.failure_feedback 包含上次的 score/issues/suggested_fix
+        - product.style_override 非空 → 覆盖 product.style
         """
         from app.services.tracing import generate_task_id
 
+        # 1. 反馈上下文准备
+        feedback_for_task_id = product.get("feedback_for_task_id")
+        style_override = product.get("style_override")
+        feedback_str = ""
+        history_override: Dict[str, Any] = {}
+        start_step = WORKFLOW_STEPS[0]
+
+        if feedback_for_task_id:
+            with session_scope() as db:
+                ev = (
+                    db.query(EvaluationResult)
+                    .filter(EvaluationResult.task_id == feedback_for_task_id)
+                    .order_by(EvaluationResult.id.desc())
+                    .first()
+                )
+            if ev:
+                issues_text = "\n".join(
+                    (i.get("detail") if isinstance(i, dict) else str(i))
+                    for i in (ev.issues or [])
+                )
+                feedback_str = (
+                    f"score={ev.score}\n"
+                    f"issues={issues_text}\n"
+                    f"suggested_fix={ev.suggested_fix or ''}"
+                )
+            # 收集上次的 product_analysis 输出作为 history
+            with session_scope() as db:
+                hist_step = (
+                    db.query(TaskStep)
+                    .filter(
+                        TaskStep.task_id == feedback_for_task_id,
+                        TaskStep.step_id == "product_analysis",
+                    )
+                    .first()
+                )
+            if hist_step and hist_step.output_payload:
+                history_override["product_analysis"] = hist_step.output_payload
+            start_step = "script_generation"
+
+        if style_override:
+            product = {**product, "style": style_override}
+
+        # 2. 正常入库
         task_id = generate_task_id()
         trace_id = generate_trace_id()
 
@@ -91,16 +136,20 @@ class WorkflowOrchestrator:
         await self.queue.connect()
         await self.queue.publish_step(
             task_id,
-            WORKFLOW_STEPS[0],
+            start_step,
             {
                 "task_id": task_id,
                 "trace_id": trace_id,
                 "product": product,
-                "history": {},
+                "history": history_override,
                 "attempt": 1,
+                **({"failure_feedback": feedback_str} if feedback_str else {}),
             },
         )
-        logger.info(f"任务已创建并派发: task_id={task_id}, trace_id={trace_id}")
+        logger.info(
+            f"任务已创建并派发: task_id={task_id}, trace_id={trace_id}, "
+            f"start_step={start_step}"
+        )
         return task_id
 
     # ============================================================

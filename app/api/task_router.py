@@ -26,6 +26,13 @@ class SubmitTaskRequest(BaseModel):
     platform: str = Field("TikTok", example="TikTok")
     style: str = Field("dramatic before-after ad", example="dramatic before-after ad")
     duration: int = Field(15, ge=5, le=60)
+    # 反馈重生: 非空时, 把该 task 的 evaluation 反馈带入新任务
+    feedback_for_task_id: Optional[str] = Field(
+        None, description="若不为空, 把该 task 的 evaluation 反馈带入新任务"
+    )
+    style_override: Optional[str] = Field(
+        None, description="重生时强制覆盖 style"
+    )
 
 
 class SubmitTaskResponse(BaseModel):
