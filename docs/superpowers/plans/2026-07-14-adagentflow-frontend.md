@@ -1549,7 +1549,7 @@ In `setup()`, before the `return` statement, add:
                 const product = {
                     product_name: task.value.product_name,
                     target_user: task.value.target_user || '',
-                    selling_points: [],  // 后端会从 product 读, 这里简化
+                    selling_points: task.value.selling_points || [],
                     platform: task.value.platform,
                     style: newStyle,
                     duration: task.value.duration,
@@ -1572,7 +1572,7 @@ In `setup()`, before the `return` statement, add:
                 const product = {
                     product_name: task.value.product_name,
                     target_user: task.value.target_user || '',
-                    selling_points: [],
+                    selling_points: task.value.selling_points || [],
                     platform: task.value.platform,
                     style: task.value.style,
                     duration: task.value.duration,
