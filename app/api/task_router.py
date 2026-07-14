@@ -154,6 +154,7 @@ def list_tasks(
                 "status": r.status,
                 "product_name": r.product_name,
                 "platform": r.platform,
+                "duration": r.duration,
                 "retry_count": r.retry_count,
                 "last_failure_reason": r.last_failure_reason,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
