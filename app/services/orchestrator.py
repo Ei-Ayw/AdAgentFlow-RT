@@ -31,7 +31,7 @@ from app.services.retry import (
     compute_retry_delay,
     should_retry,
 )
-from app.services.idempotency import acquire_idempotent
+from app.services.idempotency import acquire_idempotent, release_idempotent
 
 logger = get_logger()
 
@@ -124,7 +124,7 @@ class WorkflowOrchestrator:
             )
             db.add(t)
             # 预先插入 step 占位
-            for step_id in WORKFLOW_STEPS:
+            for step_id in [*WORKFLOW_STEPS, "repair"]:
                 step = TaskStep(
                     task_id=task_id,
                     step_id=step_id,
@@ -170,6 +170,15 @@ class WorkflowOrchestrator:
             for s in steps:
                 s.status = StepStatus.PENDING.value
                 s.retry_count = 0
+                s.output_payload = None
+                s.failure_reason = None
+                s.error_message = None
+                s.started_at = None
+                s.finished_at = None
+
+        # 清理可能由异常退出遗留的执行租约。
+        for step_id in [*WORKFLOW_STEPS, "repair"]:
+            await release_idempotent(task_id, step_id)
 
         # 重新派第一个 step
         with session_scope() as db:
@@ -209,35 +218,40 @@ class WorkflowOrchestrator:
         failure_feedback = payload.get("failure_feedback", "")
 
         # 1. 幂等拦截
-        if not await acquire_idempotent(task_id, step_id):
+        lock_owner = await acquire_idempotent(task_id, step_id)
+        if not lock_owner:
             logger.warning(f"[{step_id}] {task_id} 已被持有，跳过重复消费")
             return
+        try:
+            # 已成功节点收到旧重复消息时直接返回；显式重跑会先把节点重置为 pending。
+            if self._step_status_of(task_id, step_id) == StepStatus.SUCCESS.value:
+                logger.info(f"[{step_id}] {task_id} 已成功，忽略重复消息")
+                return
 
-        # 推进任务状态到 running（按状态机校验）
-        self._transition_task(task_id, TaskStatus.RUNNING.value)
-        # 推进 step 到 running
-        self._transition_step(task_id, step_id, StepStatus.RUNNING.value)
-        # 注：start 事件由 agent.run 内部统一写，避免重复
+            # 推进任务和节点到 running。
+            self._transition_task(task_id, TaskStatus.RUNNING.value)
+            self._transition_step(task_id, step_id, StepStatus.RUNNING.value)
 
-        # 取 agent
-        agent = get_agent(step_id)
+            agent = get_agent(step_id)
+            ctx = {
+                "task_id": task_id,
+                "trace_id": trace_id,
+                "product": product,
+                "history": history,
+                "attempt": attempt,
+                "failure_feedback": failure_feedback,
+                "original_output": payload.get("original_output", history.get(step_id, {})),
+                "target_step": payload.get("target_step", ""),
+            }
 
-        # 上下文传给 agent
-        ctx = {
-            "task_id": task_id,
-            "trace_id": trace_id,
-            "product": product,
-            "history": history,
-            "attempt": attempt,
-            "failure_feedback": failure_feedback,
-            "original_output": history.get(step_id, {}),
-        }
-
-        # 跑 agent (传入 tracer 让 agent 自己写 success/fail trace)
-        result: AgentResult = await agent.run(ctx, tracer=tracer)
-
-        # 处理结果
-        await self._handle_agent_result(task_id, step_id, result, payload, tracer)
+            result: AgentResult = await agent.run(ctx, tracer=tracer)
+            await self._handle_agent_result(task_id, step_id, result, payload, tracer)
+        finally:
+            # 正常成功、业务失败和代码异常都释放；进程硬退出则依赖短租约恢复。
+            try:
+                await release_idempotent(task_id, step_id, lock_owner)
+            except Exception as e:
+                logger.error(f"释放执行锁失败 {task_id}/{step_id}: {e}")
 
     async def _handle_agent_result(
         self,
@@ -285,6 +299,10 @@ class WorkflowOrchestrator:
         # 更新 payload.history
         history = dict(payload.get("history", {}))
         history[step_id] = result.output
+
+        if step_id == "repair":
+            await self._handle_repair_success(task_id, result.output or {}, payload, tracer)
+            return
 
         # 如果是 quality_evaluation，进入评估分支
         if step_id == "quality_evaluation":
@@ -347,8 +365,12 @@ class WorkflowOrchestrator:
         new_retry_count = mark_task_retrying(task_id, result.failure_reason, result.error_message)
         max_retry = self._max_retry_of(task_id)
 
-        # 评估类失败 → 触发 repair agent
-        if result.failure_reason == FailureReason.JUDGE_REJECTED.value and result.repair_payload:
+        # JSON/Schema 自动修复仍失败时，交给独立 Repair Agent。
+        if (
+            result.needs_repair_agent
+            and result.repair_payload
+            and step_id in WORKFLOW_STEPS[:-1]
+        ):
             await self._schedule_repair(task_id, step_id, result, payload)
             return
 
@@ -374,21 +396,17 @@ class WorkflowOrchestrator:
         if delay > 0:
             logger.info(f"任务 {task_id} {step_id} 第 {new_retry_count} 次重试，延迟 {delay}s")
 
-        async def _delayed_publish():
-            await asyncio.sleep(delay)
-            next_payload = dict(payload)
-            next_payload["attempt"] = new_retry_count + 1
-            next_payload["failure_feedback"] = (
-                f"reason={result.failure_reason}, "
-                f"error={result.error_message or ''}, "
-                f"raw={result.raw_output[:300] if result.raw_output else ''}"
-            )
-            await self.queue.publish_step(task_id, step_id, next_payload)
-
-        asyncio.create_task(_delayed_publish())
-
-        # 推进任务状态
-        self._transition_task(task_id, TaskStatus.RETRYING.value)
+        next_payload = dict(payload)
+        next_payload["attempt"] = new_retry_count + 1
+        next_payload["failure_feedback"] = (
+            f"reason={result.failure_reason}, "
+            f"error={result.error_message or ''}, "
+            f"raw={result.raw_output[:300] if result.raw_output else ''}"
+        )
+        self._transition_step(task_id, step_id, StepStatus.RETRYING.value)
+        await self.queue.publish_step_delayed(
+            task_id, step_id, next_payload, delay_seconds=delay
+        )
 
     async def _schedule_repair(
         self,
@@ -400,15 +418,75 @@ class WorkflowOrchestrator:
         """调度 repair agent 修复上游输出"""
         next_payload = dict(payload)
         next_payload["target_step"] = step_id
-        next_payload["original_output"] = result.output or {}
+        next_payload["original_output"] = result.repair_payload.get(
+            "original_output", result.output or {}
+        )
         next_payload["failure_feedback"] = (
             result.repair_payload.get("error_details", [""])
             if isinstance(result.repair_payload.get("error_details"), list)
             else [str(result.repair_payload.get("error_details"))]
         )
         next_payload["attempt"] = 1
+        self._reset_step(task_id, "repair")
         await self.queue.publish_step(task_id, "repair", next_payload)
-        self._transition_task(task_id, TaskStatus.RETRYING.value)
+
+    async def _handle_repair_success(
+        self,
+        task_id: str,
+        repaired_output: Dict[str, Any],
+        payload: Dict[str, Any],
+        tracer: Tracer,
+    ) -> None:
+        """将修复结果写回目标节点，使下游失效并从下一节点继续。"""
+        target_step = payload.get("target_step", "")
+        if target_step not in WORKFLOW_STEPS[:-1]:
+            raise ValueError(f"不支持的修复目标节点: {target_step}")
+
+        with session_scope() as db:
+            target = (
+                db.query(TaskStep)
+                .filter(TaskStep.task_id == task_id, TaskStep.step_id == target_step)
+                .first()
+            )
+            if not target:
+                raise ValueError(f"修复目标节点不存在: {task_id}/{target_step}")
+            target.status = StepStatus.SUCCESS.value
+            target.output_payload = repaired_output
+            target.failure_reason = None
+            target.error_message = None
+            target.finished_at = datetime.datetime.now(datetime.timezone.utc)
+
+            target_idx = WORKFLOW_STEPS.index(target_step)
+            for downstream_id in WORKFLOW_STEPS[target_idx + 1 :]:
+                downstream = (
+                    db.query(TaskStep)
+                    .filter(TaskStep.task_id == task_id, TaskStep.step_id == downstream_id)
+                    .first()
+                )
+                if downstream:
+                    self._clear_step_for_rerun(downstream)
+
+            history = self._collect_history(db, task_id)
+
+        next_step = next_step_or_done(target_step)
+        if next_step is None:
+            await self._finalize_task(task_id, status=TaskStatus.SUCCESS.value)
+            return
+
+        next_payload = dict(payload)
+        next_payload.pop("target_step", None)
+        next_payload.pop("original_output", None)
+        next_payload["history"] = history
+        next_payload["attempt"] = 1
+        next_payload["failure_feedback"] = ""
+        await self.queue.publish_step(task_id, next_step, next_payload)
+        self._transition_task(task_id, TaskStatus.RUNNING.value)
+        tracer.record(
+            task_id=task_id,
+            event_type="repair.applied",
+            event_status="success",
+            step_id=target_step,
+        )
 
     async def _schedule_dead_letter(
         self,
@@ -485,7 +563,19 @@ class WorkflowOrchestrator:
         self, task_id, score, issues, fix, tracer
     ):
         """评估未通过 → 重新派 script_generation 并带上反馈"""
-        # 重新跑 script_generation 节点
+        new_retry_count = mark_task_retrying(
+            task_id,
+            FailureReason.JUDGE_REJECTED.value,
+            f"score={score}; suggested_fix={fix}",
+        )
+        if not should_retry(new_retry_count, self._max_retry_of(task_id)):
+            await self._finalize_task(
+                task_id, status=TaskStatus.MANUAL_REVIEW.value, score=score
+            )
+            return
+
+        # 脚本变化会使分镜、素材和旧评估全部失效。
+        self._reset_from_step(task_id, "script_generation")
         with session_scope() as db:
             history = self._collect_history(db, task_id)
             product = self._product_of(task_id)
@@ -501,7 +591,6 @@ class WorkflowOrchestrator:
             "failure_feedback": feedback_str,
         }
         await self.queue.publish_step(task_id, "script_generation", next_payload)
-        self._transition_task(task_id, TaskStatus.RETRYING.value)
 
     async def _finalize_task(
         self,
@@ -520,12 +609,12 @@ class WorkflowOrchestrator:
                 logger.warning(f"非法最终状态转移: {task.status} -> {status}: {e}")
                 return
             task.status = status
-            task.finished_at = __import__("datetime").datetime.utcnow()
+            task.finished_at = datetime.datetime.now(datetime.timezone.utc)
+            outputs = self._collect_history(db, task_id)
+            outputs.pop("repair", None)
             if score is not None:
-                # 评分附加到 output_payload
-                op = task.output_payload or {}
-                op["quality_score"] = score
-                task.output_payload = op
+                outputs["quality_score"] = score
+            task.output_payload = outputs
 
         tracer = Tracer(self._trace_id_of(task_id))
         tracer.record(
@@ -568,7 +657,8 @@ class WorkflowOrchestrator:
                     logger.warning(f"step {task_id}/{step_id} 非法转移 {s.status} -> {to_status}")
                     return
                 s.status = to_status
-                s.started_at = __import__("datetime").datetime.utcnow()
+                if to_status == StepStatus.RUNNING.value:
+                    s.started_at = datetime.datetime.now(datetime.timezone.utc)
         except Exception as e:
             logger.error(f"_transition_step 失败: {e}")
 
@@ -581,6 +671,46 @@ class WorkflowOrchestrator:
         with session_scope() as db:
             t = db.query(Task).filter(Task.task_id == task_id).first()
             return t.retry_count if t else 0
+
+    def _step_status_of(self, task_id: str, step_id: str) -> Optional[str]:
+        with session_scope() as db:
+            step = (
+                db.query(TaskStep)
+                .filter(TaskStep.task_id == task_id, TaskStep.step_id == step_id)
+                .first()
+            )
+            return step.status if step else None
+
+    @staticmethod
+    def _clear_step_for_rerun(step: TaskStep) -> None:
+        step.status = StepStatus.PENDING.value
+        step.input_payload = None
+        step.output_payload = None
+        step.failure_reason = None
+        step.error_message = None
+        step.started_at = None
+        step.finished_at = None
+        step.latency_ms = None
+        step.token_cost = 0
+
+    def _reset_step(self, task_id: str, step_id: str) -> None:
+        with session_scope() as db:
+            step = (
+                db.query(TaskStep)
+                .filter(TaskStep.task_id == task_id, TaskStep.step_id == step_id)
+                .first()
+            )
+            if step:
+                self._clear_step_for_rerun(step)
+
+    def _reset_from_step(self, task_id: str, start_step: str) -> None:
+        start_idx = WORKFLOW_STEPS.index(start_step)
+        reset_ids = set(WORKFLOW_STEPS[start_idx:])
+        with session_scope() as db:
+            steps = db.query(TaskStep).filter(TaskStep.task_id == task_id).all()
+            for step in steps:
+                if step.step_id in reset_ids:
+                    self._clear_step_for_rerun(step)
 
     def _trace_id_of(self, task_id: str) -> str:
         with session_scope() as db:

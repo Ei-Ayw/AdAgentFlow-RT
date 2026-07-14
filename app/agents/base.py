@@ -55,6 +55,10 @@ class BaseAgent:
     def build_user_prompt(self, ctx: Dict[str, Any]) -> str:
         raise NotImplementedError
 
+    def validation_schema_name(self, ctx: Dict[str, Any]) -> str:
+        """允许 Repair Agent 按目标节点 Schema 校验输出。"""
+        return self.step_id
+
     # ================================================================
     # 统一执行入口
     # ================================================================
@@ -75,13 +79,14 @@ class BaseAgent:
 
         system_prompt = self.build_system_prompt()
         user_prompt = self.build_user_prompt(ctx)
+        schema_name = self.validation_schema_name(ctx)
 
         try:
             parsed, llm_resp = await self.llm.generate_json(
                 user_prompt,
                 system_prompt=system_prompt,
                 prompt_version=self.prompt_version,
-                step_id=self.step_id,
+                step_id=schema_name,
             )
             result.raw_output = llm_resp.content
             result.input_tokens += llm_resp.input_tokens
@@ -93,7 +98,7 @@ class BaseAgent:
                 result.prompt_version = llm_resp.prompt_version
 
             # 校验 Schema
-            parsed, _ = validate_json_output(self.step_id, llm_resp.content)
+            parsed, _ = validate_json_output(schema_name, llm_resp.content)
             result.output = parsed
             result.success = True
             result.latency_ms = int((time.time() - start) * 1000)
@@ -122,7 +127,7 @@ class BaseAgent:
             local_repaired = quick_json_repair(raw_content)
             if local_repaired is not None:
                 try:
-                    parsed, _ = validate_json_output(self.step_id, json_dumps(local_repaired))
+                    parsed, _ = validate_json_output(schema_name, json_dumps(local_repaired))
                     result.output = parsed
                     result.raw_output = json_dumps(local_repaired)
                     result.success = True
@@ -140,7 +145,7 @@ class BaseAgent:
 
             # 2. 调用 LLM 修复
             repair_prompt = build_repair_prompt(
-                self.step_id,
+                schema_name,
                 raw_content or "",
                 error_details,
                 original_system=system_prompt,
@@ -150,7 +155,7 @@ class BaseAgent:
                     repair_prompt,
                     system_prompt=system_prompt,
                     prompt_version=self.prompt_version + ".repair",
-                    step_id=self.step_id,
+                    step_id=schema_name,
                 )
                 result.repairs_attempted = 1
                 result.input_tokens += repaired_resp.input_tokens
@@ -158,7 +163,7 @@ class BaseAgent:
                 if repaired_resp.model:
                     result.model = repaired_resp.model
                 result.raw_output = repaired_resp.content
-                parsed, _ = validate_json_output(self.step_id, repaired_resp.content)
+                parsed, _ = validate_json_output(schema_name, repaired_resp.content)
                 result.output = parsed
                 result.success = True
                 result.latency_ms = int((time.time() - start) * 1000)

@@ -378,16 +378,18 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
     # ---- idempotency ----
     async def mock_acquire_idempotent(task_id, step_id, *, ttl=None):
         key = _idem.idempotent_key(task_id, step_id)
-        marker = json.dumps({"ts": int(time.time()), "step_id": step_id})
+        owner = f"mock-owner-{task_id}-{step_id}-{time.time_ns()}"
+        marker = json.dumps({"ts": int(time.time()), "step_id": step_id, "owner": owner})
         res = await ctx.redis.set(name=key, value=marker, nx=True, ex=ttl or 86400)
         if res:
             ctx.redis.idempotent_acquires += 1
-            return True
+            return owner
         ctx.redis.idempotent_rejected += 1
         return False
 
-    async def mock_release_idempotent(task_id, step_id):
+    async def mock_release_idempotent(task_id, step_id, owner=None):
         await ctx.redis.delete(_idem.idempotent_key(task_id, step_id))
+        return True
 
     async def mock_is_idempotent_held(task_id, step_id):
         return await ctx.redis.exists(_idem.idempotent_key(task_id, step_id)) > 0
@@ -406,6 +408,7 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
     _idem.is_idempotent_held = mock_is_idempotent_held
     _idem.mark_message_seen = mock_mark_message_seen
     _orch.acquire_idempotent = mock_acquire_idempotent
+    _orch.release_idempotent = mock_release_idempotent
 
     # ---- queue ----
     class MockQueueClient:
@@ -426,6 +429,10 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
                 "ts": time.time(),
             }
             ctx.queue.publish(f"ad_task.{step_id}", body)
+
+        async def publish_step_delayed(self, task_id, step_id, payload, delay_seconds):
+            # 单元测试不等待墙钟时间，只验证消息与 payload 是否正确。
+            await self.publish_step(task_id, step_id, payload)
 
         async def publish_dead_letter(self, task_id, step_id, payload):
             body = {"task_id": task_id, "step_id": step_id, "payload": payload}
@@ -642,7 +649,7 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
         trace_id = generate_trace_id()
         ctx.db.add_task(MockTask(task_id=task_id, trace_id=trace_id,
                                   status="created", product=product))
-        for step_id in WORKFLOW_STEPS:
+        for step_id in [*WORKFLOW_STEPS, "repair"]:
             ctx.db.add_step(MockStep(task_id, step_id,
                                       STEP_NAME_DISPLAY.get(step_id, step_id)))
         payload = {

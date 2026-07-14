@@ -97,23 +97,21 @@ class HeavyWorker:
     2、如果上下文里抛异常，requeue=False 表示不要重新入队，通常会被拒绝或进入死信链路，取决于队列配置。
     """
     async def _handle_message(self, message: AbstractIncomingMessage):
-        async with message.process(requeue=False):
-            try:
-                body = json.loads(message.body.decode("utf-8"))
-            except Exception:
-                return
-            # 从消息里取出任务 ID、步骤 ID 和业务负载
-            task_id = body.get("task_id")
-            step_id = body.get("step_id")
-            payload = body.get("payload", {})
-            # 真正执行 step
-            # 调用 orchestrator.execute_step()，它会根据 step_id 找到对应的 step handler 并执行。
-            try:
+        try:
+            body = json.loads(message.body.decode("utf-8"))
+        except Exception as e:
+            logger.error(f"heavy worker 消息解析失败: {e}")
+            await message.reject(requeue=False)
+            return
+
+        try:
+            async with message.process(requeue=True, reject_on_redelivered=True):
+                task_id = body.get("task_id")
+                step_id = body.get("step_id")
+                payload = body.get("payload", {})
                 await self.orchestrator.execute_step(task_id, step_id, payload)
-            # 把 orchestrator 的异常吞掉了，只记日志
-            # 不过，worker 本身不会因为执行失败而让消息重新抛出，所以最终消息层面可能仍然被 ack
-            except Exception as e:
-                logger.error(f"heavy worker execute_step 异常: {e}")
+        except Exception as e:
+            logger.error(f"heavy worker 执行异常，消息已按投递状态处理: {e}")
 
     async def stop(self):
         self._running = False

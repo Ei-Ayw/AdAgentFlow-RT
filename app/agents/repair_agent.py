@@ -4,12 +4,22 @@
 import json
 from app.agents.base import BaseAgent
 from app.schemas.agent_schemas import pydantic_to_json_schema
-from app.core.failure_codes import FailureReason
 
 
 class RepairAgent(BaseAgent):
     step_id = "repair"
     prompt_version = "v1.0"
+
+    def validation_schema_name(self, ctx: dict) -> str:
+        target_step = ctx.get("target_step", "")
+        if target_step not in {
+            "product_analysis",
+            "script_generation",
+            "storyboard_planning",
+            "material_suggestion",
+        }:
+            raise ValueError(f"不支持修复目标节点: {target_step}")
+        return target_step
 
     def build_system_prompt(self) -> str:
         return (

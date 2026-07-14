@@ -69,11 +69,6 @@ def mark_task_retrying(task_id: str, failure_reason: str, error_message: str) ->
         task.last_failure_reason = failure_reason
         task.status = "retrying"
         rc = task.retry_count
-        # 同步 task_step
-        steps = db.query(TaskStep).filter(TaskStep.task_id == task_id).all()
-        for st in steps:
-            if st.status == "failed":
-                st.retry_count = (st.retry_count or 0) + 1
         return rc
 
 

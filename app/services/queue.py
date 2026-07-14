@@ -117,24 +117,71 @@ class QueueClient:
         await self._exchange.publish(msg, routing_key=routing_key)
         logger.info(f"已发布消息 → {routing_key}: {body.get('task_id')}")
 
-    async def publish_step(self, task_id: str, step_id: str, payload: Dict[str, Any]):
-        """发布 step 任务"""
-        body = {
+    def _step_body(self, task_id: str, step_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {
             "task_id": task_id,
             "step_id": step_id,
             "payload": payload,
             "ts": asyncio.get_event_loop().time(),
         }
+
+    async def publish_step(self, task_id: str, step_id: str, payload: Dict[str, Any]):
+        """发布 step 任务"""
+        body = self._step_body(task_id, step_id, payload)
         routing_key = f"ad_task.{step_id}"
         await self.publish(routing_key, body)
 
+    async def publish_step_delayed(
+        self,
+        task_id: str,
+        step_id: str,
+        payload: Dict[str, Any],
+        delay_seconds: int,
+    ) -> None:
+        """通过 RabbitMQ TTL + DLX 持久化延迟重试，不依赖 Worker 进程内 sleep。"""
+        if delay_seconds <= 0:
+            await self.publish_step(task_id, step_id, payload)
+            return
+
+        await self.connect()
+        routing_key = f"ad_task.{step_id}"
+        delay_ms = int(delay_seconds * 1000)
+        queue_name = f"{routing_key}.retry.{delay_ms}.queue"
+        await self._channel.declare_queue(
+            queue_name,
+            durable=True,
+            arguments={
+                "x-message-ttl": delay_ms,
+                "x-dead-letter-exchange": EXCHANGE_NAME,
+                "x-dead-letter-routing-key": routing_key,
+            },
+        )
+        body = self._step_body(task_id, step_id, payload)
+        message = aio_pika.Message(
+            body=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json",
+            delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            message_id=str(uuid.uuid4()),
+            headers={"task_id": task_id, "step_id": step_id, "retry_delay": delay_seconds},
+        )
+        await self._channel.default_exchange.publish(message, routing_key=queue_name)
+        logger.info(f"已持久化延迟重试 → {routing_key}: {task_id}, delay={delay_seconds}s")
+
     async def publish_dead_letter(self, task_id: str, step_id: str, payload: Dict[str, Any]):
+        await self.connect()
         body = {
             "task_id": task_id,
             "step_id": step_id,
             "payload": payload,
         }
-        await self.publish(TOPIC_DEAD_LETTER, body)
+        message = aio_pika.Message(
+            body=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+            content_type="application/json",
+            delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            message_id=str(uuid.uuid4()),
+            headers={"task_id": task_id, "step_id": step_id},
+        )
+        await self._dlx.publish(message, routing_key=TOPIC_DEAD_LETTER)
 
 
 # 单例

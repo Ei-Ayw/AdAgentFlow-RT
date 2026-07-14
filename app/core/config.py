@@ -25,7 +25,8 @@ class Settings(BaseSettings):
 
     # ===== Redis =====
     redis_url: str = "redis://localhost:6379/0"
-    redis_idempotent_ttl: int = 86400  # 24 小时
+    redis_idempotent_ttl: int = 86400  # 已完成标记保留时间
+    redis_execution_lock_ttl: int = 300  # 执行锁租约，防止 Worker 崩溃后长期阻塞
 
     # ===== RabbitMQ =====
     rabbitmq_url: str = "amqp://adagent:adagent_secret_2026@localhost:5672/adagentflow"

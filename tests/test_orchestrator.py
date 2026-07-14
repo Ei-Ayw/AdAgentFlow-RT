@@ -210,7 +210,7 @@ class TestExecuteStepFailureRetry:
             step = mock_ctx.db.get_step(task_id, "product_analysis")
             # 因为 quick_json_repair 补右括号后再 validate 应该还会失败（schema 不全）
             # 所以应该是 FAILED + retry 路径
-            assert step.status in ("failed", "success"), step.status
+            assert step.status == "retrying", step.status
             # task 应被标记为 retrying 或 running
             task = mock_ctx.db.tasks[task_id]
             assert task.status in ("retrying", "running")
@@ -263,7 +263,6 @@ class TestExecuteStepFailureRetry:
         """step 失败 → task 进入 retrying → 重试后成功。"""
         from app.services.orchestrator import get_orchestrator
         from app.services.llm_client import LLMClient
-        from app.services import idempotency as idem
 
         call_count = {"n": 0}
         original_mock_generate = LLMClient._mock_generate
@@ -298,10 +297,6 @@ class TestExecuteStepFailureRetry:
             assert task.status == "retrying"
             step = mock_ctx.db.get_step(task_id, "product_analysis")
             assert step.status in ("failed", "retrying")
-
-            # 生产环境的 worker 在失败后会 release_idempotent，这里手动模拟
-            # 否则第二次 execute_step 会被 idempotency 拦截跳过。
-            await idem.release_idempotent(task_id, "product_analysis")
 
             # 模拟 worker 拉起重试消息：再调一次 execute_step（恢复后的 LLM）
             payload["attempt"] = 2

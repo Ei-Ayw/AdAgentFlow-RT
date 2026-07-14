@@ -50,7 +50,13 @@ TASK_TRANSITIONS: Dict[TaskStatus, Set[TaskStatus]] = {
         TaskStatus.DEAD_LETTER,
         TaskStatus.QUEUED,
     },
-    TaskStatus.RETRYING: {TaskStatus.QUEUED, TaskStatus.RUNNING, TaskStatus.DEAD_LETTER, TaskStatus.FAILED},
+    TaskStatus.RETRYING: {
+        TaskStatus.QUEUED,
+        TaskStatus.RUNNING,
+        TaskStatus.DEAD_LETTER,
+        TaskStatus.FAILED,
+        TaskStatus.MANUAL_REVIEW,
+    },
     TaskStatus.MANUAL_REVIEW: {TaskStatus.QUEUED, TaskStatus.SUCCESS, TaskStatus.FAILED, TaskStatus.DEAD_LETTER},
     TaskStatus.SUCCESS: set(),  # 终态
     TaskStatus.FAILED: {TaskStatus.RETRYING, TaskStatus.DEAD_LETTER, TaskStatus.MANUAL_REVIEW},

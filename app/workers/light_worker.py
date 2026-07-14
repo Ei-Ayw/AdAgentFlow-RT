@@ -89,21 +89,24 @@ class LightWorker:
                 await self._handle_message(message, topic)
 
     async def _handle_message(self, message: AbstractIncomingMessage, topic: str):
-        """处理单条消息 - 含异常兜底，保证不会卡死 worker"""
-        async with message.process(requeue=False):
-            try:
-                body = json.loads(message.body.decode("utf-8"))
-            except Exception as e:
-                logger.error(f"消息解析失败: {e}, ack 并丢弃")
-                return
-            task_id = body.get("task_id")
-            step_id = body.get("step_id")
-            payload = body.get("payload", {})
-            logger.info(f"[{step_id}] 收到任务 {task_id}, attempt={payload.get('attempt', 1)}")
-            try:
+        """首次执行异常重入队；再次失败拒绝并进入工作队列配置的 DLX。"""
+        try:
+            body = json.loads(message.body.decode("utf-8"))
+        except Exception as e:
+            logger.error(f"消息解析失败: {e}, reject 并进入死信")
+            await message.reject(requeue=False)
+            return
+
+        try:
+            async with message.process(requeue=True, reject_on_redelivered=True):
+                task_id = body.get("task_id")
+                step_id = body.get("step_id")
+                payload = body.get("payload", {})
+                logger.info(f"[{step_id}] 收到任务 {task_id}, attempt={payload.get('attempt', 1)}")
                 await self.orchestrator.execute_step(task_id, step_id, payload)
-            except Exception as e:
-                logger.error(f"execute_step 异常: {e}\n{__import__('traceback').format_exc()}")
+        except Exception as e:
+            # process 上下文已经完成 requeue/reject；这里只吞异常以保持消费循环存活。
+            logger.error(f"execute_step 异常，消息已按投递状态处理: {e}")
 
     async def stop(self):
         self._running = False
