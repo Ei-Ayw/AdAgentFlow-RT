@@ -60,8 +60,80 @@ export const TaskDetailPage = {
         const isDone = computed(() => task.value && ['success','failed','dead_letter','manual_review'].includes(task.value.status));
         const evalStep = computed(() => steps.value.find(s => s.step_id === 'quality_evaluation' && s.output_payload));
 
+        const regenerating = ref(false);
+        const doneSteps = computed(() => steps.value.filter(s => s.output_payload && s.status === 'success'));
+
+        const scoreColor = computed(() => {
+            const s = evalStep.value?.output_payload?.score;
+            if (s == null) return 'text-slate-500';
+            if (s >= 80) return 'text-emerald-400';
+            if (s >= 60) return 'text-amber-400';
+            return 'text-rose-400';
+        });
+
+        async function regenerateStyle() {
+            regenerating.value = true;
+            try {
+                const { submitTask } = await import('/web/api.js');
+                const newStyle = prompt('输入新风格:', 'humor meme ad') || task.value.style;
+                const product = {
+                    product_name: task.value.product_name,
+                    target_user: task.value.target_user || '',
+                    selling_points: task.value.selling_points || [],
+                    platform: task.value.platform,
+                    style: newStyle,
+                    duration: task.value.duration,
+                    feedback_for_task_id: task.value.task_id,
+                    style_override: newStyle,
+                };
+                const result = await submitTask(product);
+                location.hash = '#/task/' + result.task_id;
+            } catch (e) {
+                showToast('重生失败: ' + e.message, 'error');
+            } finally {
+                regenerating.value = false;
+            }
+        }
+
+        async function regenerateWithFeedback() {
+            regenerating.value = true;
+            try {
+                const { submitTask } = await import('/web/api.js');
+                const product = {
+                    product_name: task.value.product_name,
+                    target_user: task.value.target_user || '',
+                    selling_points: task.value.selling_points || [],
+                    platform: task.value.platform,
+                    style: task.value.style,
+                    duration: task.value.duration,
+                    feedback_for_task_id: task.value.task_id,
+                };
+                const result = await submitTask(product);
+                location.hash = '#/task/' + result.task_id;
+            } catch (e) {
+                showToast('反馈重生失败: ' + e.message, 'error');
+            } finally {
+                regenerating.value = false;
+            }
+        }
+
+        function copyAll() {
+            const lines = [];
+            lines.push(`# ${task.value.product_name} · ${task.value.platform} · ${task.value.duration}s`);
+            for (const s of doneSteps.value) {
+                lines.push(`\n## ${s.step_name}`);
+                lines.push(JSON.stringify(s.output_payload, null, 2));
+            }
+            navigator.clipboard.writeText(lines.join('\n'))
+                .then(() => showToast('已复制到剪贴板', 'success'))
+                .catch(e => showToast('复制失败: ' + e.message, 'error'));
+        }
+
         return {
             task, steps, error, polling, currentStep, banner, isDone, evalStep,
+            getCancelPolling,
+            doneSteps, scoreColor, regenerating,
+            regenerateStyle, regenerateWithFeedback, copyAll,
         };
     },
     template: `
@@ -108,17 +180,50 @@ export const TaskDetailPage = {
                 <StepOutputCard :step="currentStep" />
             </div>
 
-            <div v-if="isDone" class="mt-4">
-                <div class="card">
-                    <h3 class="font-semibold text-slate-200 mb-3">▣ 最终结果</h3>
-                    <p class="text-slate-400 text-sm mb-3">
-                        任务已完成, 下方为各节点输出。完整结果按节点分类, 可单独复制。
-                    </p>
-                    <div class="flex gap-2">
-                        <a :href="'/dashboard/trace.html?task_id=' + taskId"
-                           target="_blank" class="text-sky-400 text-sm hover:underline">
-                            📊 查看完整 Trace 时间线 →
-                        </a>
+            <div v-if="isDone" class="mt-4 space-y-4">
+                <!-- 评分卡 -->
+                <div v-if="evalStep" class="card">
+                    <div class="flex items-center gap-4">
+                        <div :class="['text-4xl font-bold', scoreColor]">
+                            {{ evalStep.output_payload.score ?? '—' }}
+                        </div>
+                        <div class="text-slate-400">/ 100</div>
+                        <div class="flex-1">
+                            <div class="text-sm">
+                                <span v-if="evalStep.output_payload.passed" class="text-emerald-400">✅ 通过</span>
+                                <span v-else class="text-rose-400">❌ 未通过</span>
+                                <span class="text-slate-500 ml-2">· 风险 {{ evalStep.output_payload.risk_level }}</span>
+                            </div>
+                            <div v-if="evalStep.output_payload.suggested_fix" class="text-xs text-slate-400 mt-1">
+                                改进建议: {{ evalStep.output_payload.suggested_fix }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4 张结果卡: 脚本 / 分镜 / 素材 / 评价 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <StepOutputCard v-for="s in doneSteps" :key="s.step_id" :step="s" />
+                </div>
+
+                <!-- 操作栏 -->
+                <div class="card flex flex-wrap items-center justify-between gap-3">
+                    <div class="text-sm text-slate-400">对这个结果满意吗？</div>
+                    <div class="flex flex-wrap gap-2">
+                        <button @click="regenerateStyle"
+                                :disabled="regenerating"
+                                class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-slate-900 rounded text-sm font-medium disabled:opacity-40">
+                            🔁 换个风格重生
+                        </button>
+                        <button @click="regenerateWithFeedback"
+                                :disabled="regenerating"
+                                class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-900 rounded text-sm font-medium disabled:opacity-40">
+                            💬 反馈重生
+                        </button>
+                        <button @click="copyAll"
+                                class="px-4 py-2 border border-slate-700 hover:bg-slate-800 rounded text-sm text-slate-200">
+                            📋 复制全部
+                        </button>
                     </div>
                 </div>
             </div>
