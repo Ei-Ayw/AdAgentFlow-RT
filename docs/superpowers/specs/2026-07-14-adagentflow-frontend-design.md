@@ -40,16 +40,16 @@ AdAgentFlow 后端已具备完整的 5 节点 Agent 链 + 评估闭环 + 死信�
 
 **目录结构**
 ```
-app/web/
-├── index.html              # SPA 入口
-├── main.js                 # Vue 启动 + 路由
-├── api.js                  # fetch 封装 + 轮询工具
-├── style.css               # Tailwind 引入 + 自定义变量
+app/web/                      # 整个目录被 FastAPI 静态托管
+├── index.html                # SPA 入口（路径 /web/index.html 或 /）
+├── main.js                   # Vue 启动 + 路由
+├── api.js                    # fetch 封装 + 轮询工具
+├── style.css                 # Tailwind 引入 + 自定义变量
 ├── components/
-│   ├── AgentStepper.vue    # 5 步节点状态机组件
-│   ├── StepOutputCard.vue  # 单节点输出卡片（按 schema 切换布局）
-│   ├── StatusBadge.vue     # 状态色标
-│   └── TaskCard.vue        # 列表项
+│   ├── AgentStepper.vue      # 5 步节点状态机组件
+│   ├── StepOutputCard.vue    # 单节点输出卡片（按 schema 切换布局）
+│   ├── StatusBadge.vue       # 状态色标
+│   └── TaskCard.vue          # 列表项
 └── pages/
     ├── TaskListPage.vue
     ├── SubmitPage.vue
@@ -203,11 +203,17 @@ class SubmitTaskRequest(BaseModel):
 ```
 
 在 `orchestrator.create_task`（`app/services/orchestrator.py:54`）中：
-- 若 `feedback_for_task_id` 非空，从 DB 读取该 task 的 `script_generation` 输出
-- 把 `failure_feedback` 字段拼上「上次评分 + 改进建议」写入 queue payload
-- 直接从 `script_generation` 节点起跑，跳过 `product_analysis`
+- 若 `feedback_for_task_id` 非空，从 DB 读取该 task 的 `EvaluationResult`（最新一条）
+- 把 `failure_feedback` 字段按以下格式拼接后写入 queue payload：
+  ```
+  score={eval.score}
+  issues={'\n'.join(i.detail for i in eval.issues)}
+  suggested_fix={eval.suggested_fix}
+  ```
+- 起始节点改为 `script_generation`（跳过 `product_analysis`），并把上次 `product_analysis` 的输出塞进 `history` 字段
+- 若请求带 `style_override`，覆盖 `product.style` 后再写入
 
-**改动量**：约 30 行，含 1 个测试。
+**改动量**：约 30 行，含 1 个新测试。
 
 ## 7. 错误处理
 
@@ -271,8 +277,8 @@ class SubmitTaskRequest(BaseModel):
 ## 10. 部署
 
 - 新增 `app/web/` 目录，与 `app/dashboard/` 平级
-- `app/main.py` 增加一行 `app.mount("/web", StaticFiles(directory="app/web/static"), name="web")`（或挂到 `/`，视后续是否合并 dashboard）
-- 入口 `index.html` 挂到 `/web/` 或根路径
+- `app/main.py` 增加一行 `app.mount("/web", StaticFiles(directory="app/web", html=True), name="web")`（与 `app/dashboard` 同样的挂载方式）
+- 入口 `app/web/index.html` 访问路径为 `/web/`
 - 不引入新服务、不改 docker-compose
 
 ## 11. 风险与权衡
