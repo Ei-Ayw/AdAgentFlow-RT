@@ -5,3 +5,5 @@ from app.models.trace import TaskTrace  # noqa
 from app.models.dead_letter import DeadLetter  # noqa
 from app.models.evaluation import EvaluationResult  # noqa
 from app.models.metric import AgentMetric, MessageDedup  # noqa
+from app.models.outbox import OutboxEvent  # noqa
+from app.models.execution import StepExecution  # noqa

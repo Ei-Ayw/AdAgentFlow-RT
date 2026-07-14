@@ -1,0 +1,58 @@
+groups:
+  - name: adagentflow-availability
+    rules:
+      - alert: AdAgentFlowApiDown
+        expr: up{job="adagentflow-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: AdAgentFlow API 无法抓取
+          runbook: docs/RUNBOOK.md#api-不可用
+
+      - alert: AdAgentFlowOutboxBacklog
+        expr: sum(adagentflow_outbox_events{status=~"pending|failed|publishing"}) > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Outbox 持续积压超过 100 条
+          runbook: docs/RUNBOOK.md#outbox-积压
+
+      - alert: AdAgentFlowOutboxExhausted
+        expr: adagentflow_outbox_events{status="exhausted"} > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Outbox 事件达到最大发布次数
+          runbook: docs/RUNBOOK.md#outbox-exhausted
+
+      - alert: AdAgentFlowOutboxPublishFailures
+        expr: rate(adagentflow_outbox_publish_total{result="failed"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Outbox 发布失败持续发生
+          runbook: docs/RUNBOOK.md#outbox-积压
+
+  - name: adagentflow-rabbitmq
+    rules:
+      - alert: AdAgentFlowQueueBacklog
+        expr: sum(rabbitmq_queue_messages_ready{queue=~"ad_task\\..*\\.queue"}) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Agent 工作队列持续积压
+          runbook: docs/RUNBOOK.md#worker-不消费
+
+      - alert: AdAgentFlowDeadLetterBacklog
+        expr: rabbitmq_queue_messages_ready{queue="ad_task.dead_letter.queue"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: RabbitMQ 死信队列存在待处理消息
+          runbook: docs/RUNBOOK.md#死信增长

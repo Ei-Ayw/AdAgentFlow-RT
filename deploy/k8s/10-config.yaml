@@ -16,9 +16,14 @@ data:
   # ---- Database (non-secret parts) ----
   DB_POOL_SIZE: "20"
   DB_MAX_OVERFLOW: "40"
+  DB_POOL_TIMEOUT: "10"
+  DB_CONNECT_TIMEOUT: "5"
+  DB_STATEMENT_TIMEOUT_MS: "30000"
+  DATABASE_AUTO_CREATE: "false"
 
   # ---- Redis ----
   REDIS_IDEMPOTENT_TTL: "86400"
+  REDIS_EXECUTION_LOCK_TTL: "300"
 
   # ---- RabbitMQ ----
   RABBITMQ_PREFETCH: "8"
@@ -27,6 +32,15 @@ data:
   MAX_RETRY_COUNT: "3"
   RETRY_DELAYS: "0,5,15"
   DEAD_LETTER_THRESHOLD: "3"
+
+  # ---- Transactional Outbox ----
+  OUTBOX_POLL_INTERVAL: "1.0"
+  OUTBOX_BATCH_SIZE: "100"
+  OUTBOX_MAX_ATTEMPTS: "20"
+  OUTBOX_LOCK_TIMEOUT: "60"
+
+  # ---- API ----
+  CORS_ORIGINS: "https://adagentflow.example.com"
 
   # ---- Langfuse ----
   LANGFUSE_ENABLED: "true"
@@ -39,6 +53,9 @@ data:
 
   # ---- Logging ----
   LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+  SERVICE_NAME: "adagentflow"
+  WORKER_SHUTDOWN_TIMEOUT: "30"
 
   # ---- Service URLs (resolved via DNS inside the namespace) ----
   # NOTE: secrets are NOT injected here. The actual credentials are wired in

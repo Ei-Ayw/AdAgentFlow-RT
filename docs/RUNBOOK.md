@@ -71,7 +71,10 @@ flowchart LR
 
 | 端点 | 说明 |
 |------|------|
-| `GET /health` | DB ping 检查 |
+| `GET /live` | 仅检查 API 进程存活 |
+| `GET /ready` | 检查 PostgreSQL、Redis、RabbitMQ，失败返回 503 |
+| `GET /health` | 兼容入口，语义等同 `/ready` |
+| `GET /metrics` | Prometheus 指标 |
 | `GET /api/v1/dashboard/health-check` | 全组件健康检查 |
 | RabbitMQ Management UI | http://localhost:15672 |
 | Langfuse UI | http://localhost:3000 |
@@ -89,8 +92,8 @@ git pull origin main
 # 2. 备份数据库（生产必做）
 pg_dump -h localhost -U adagent adagentflow > backup_$(date +%Y%m%d).sql
 
-# 3. 查看是否有 schema 变更
-diff sql/init.sql sql/init.sql.previous
+# 3. 执行版本化迁移
+alembic upgrade head
 
 # 4. 滚动重启（先 Worker 后 API，避免消息丢失）
 docker compose up -d --no-deps worker-light
@@ -116,14 +119,13 @@ psql -h localhost -U adagent adagentflow < backup_20260101.sql
 docker compose restart rabbitmq
 ```
 
-### 2.3 数据库迁移（未来）
+### 2.3 数据库迁移
 
-当前用 `Base.metadata.create_all` 自动建表，生产建议改 Alembic：
+生产设置 `DATABASE_AUTO_CREATE=false`，只允许 Alembic 修改 Schema：
 
 ```bash
-# 初始化（未来）
-alembic init alembic
-alembic revision --autogenerate -m "add agent_metrics table"
+alembic current
+alembic heads
 alembic upgrade head
 ```
 
@@ -143,27 +145,16 @@ alembic upgrade head
 | DB 连接池使用率 | `checkedout / (pool_size + max_overflow)` | > 80% 黄色 |
 | Redis 内存 | `INFO memory` `used_memory` | > 80% of maxmemory 黄色 |
 
-### 3.2 Prometheus 集成（规划）
+### 3.2 Prometheus 集成
 
-`requirements.txt` 已包含 `prometheus-client:0.21.0`。在 API 入口加：
-
-```python
-from prometheus_client import Counter, Histogram, make_asgi_app
-from prometheus_client import multiprocess
-
-task_total = Counter("adagentflow_tasks_total", "Total tasks", ["status"])
-task_duration = Histogram("adagentflow_task_duration_seconds", "Task duration")
-llm_call_total = Counter("adagentflow_llm_calls_total", "LLM calls", ["model", "step"])
-json_failure_total = Counter("adagentflow_json_failures_total", "JSON failures", ["step"])
-
-app.mount("/metrics", make_asgi_app())
-```
+API 已通过 `/metrics` 暴露 Outbox 发布结果与各状态积压量。告警规则位于
+`deploy/prometheus/adagentflow-rules.yml`。RabbitMQ 规则要求部署 RabbitMQ Prometheus exporter。
 
 ### 3.3 日志位置
 
 - **容器内**：`/app/logs/adagentflow_YYYY-MM-DD.log`
 - **容器外**：通过 `docker compose logs` 查看 stdout
-- **格式**：`<时间> | <级别> | <模块:函数:行号> | <消息>`
+- **格式**：生产默认 JSON，包含 `service/instance/task_id/step_id/message_id/trace_id/execution_id`；本地可设置 `LOG_FORMAT=text`
 - **rotation**：100MB 自动 rotate，保留 30 天
 
 ### 3.4 推荐告警规则（PromQL）
@@ -198,6 +189,36 @@ groups:
 
 ## 4. 常见故障排查
 
+告警处理统一顺序：确认影响范围 → 暂停接流量/扩容止损 → 保留日志与指标证据 → 恢复服务 → 补录时间线和根因。不要在未备份时删除队列或 Outbox 数据。
+
+### API 不可用
+
+1. 对比 `/live` 与 `/ready`：前者失败是进程问题，只有后者失败通常是依赖问题；
+2. 查看 readiness 返回的 `checks`，定位 PostgreSQL、Redis 或 RabbitMQ；
+3. 若依赖大面积异常，先从负载均衡摘除实例，不要反复重启导致重试风暴；
+4. 恢复后确认 Outbox、工作队列和死信没有持续增长。
+
+### Outbox 积压
+
+1. 查询 `outbox_events` 中 `pending/failed/publishing` 数量、最早创建时间和 `last_error`；
+2. 检查 `worker-outbox` 日志及 RabbitMQ readiness；
+3. 若 RabbitMQ 已恢复，先单副本观察补发，再逐步扩容；
+4. 不要直接把记录改成 `published`，否则会永久丢消息。
+
+### Outbox exhausted
+
+1. 按 `last_error` 聚类，确认是认证、拓扑不一致、网络还是坏消息；
+2. 修复根因后将选定事件恢复为 `failed`、清空锁字段并降低尝试次数；
+3. 由 Outbox Worker 补发并观察消费端幂等；
+4. 记录重复投递数和最终业务状态。
+
+### 死信增长
+
+1. 按 `failure_reason/step_id/model_name/prompt_version` 聚类；
+2. 基础设施错误优先恢复依赖，Schema/内容错误检查 Prompt 和 Repair；
+3. 批量恢复前先用一条任务验证；
+4. 未确认根因前不要清空 DLQ。
+
 ### 4.1 Worker 不消费
 
 **症状**：任务提交后一直停在 `queued` 状态，Dashboard 不更新。
@@ -212,7 +233,7 @@ docker compose ps worker-light
 docker compose logs --tail=100 worker-light
 
 # 3. 检查 RabbitMQ 队列
-# 浏览器打开 http://localhost:15672 (adagent / adagent_secret_2026)
+# 浏览器打开 http://localhost:15672（密码从本地 Secret/.env 获取）
 # 看 ad_task.* 队列的 messages_ready 是否 > 0
 
 # 4. 检查队列消费者数量
@@ -475,9 +496,8 @@ docker cp adagentflow-rabbitmq:/tmp/definitions.json ./rabbitmq_definitions_$(da
 
 ### 7.1 当前状态
 
-- ⚠️ `.env.example` 含测试用 token，生产必须替换
-- ⚠️ RabbitMQ 默认账号 `adagent/adagent_secret_2026` 必须改
-- ⚠️ PostgreSQL 同上
+- `.env.example` 只保留占位符，真实值必须通过 Secret 注入
+- RabbitMQ 和 PostgreSQL 禁止使用仓库历史中的旧密码
 - ⚠️ API 无鉴权（开发用），生产必须加 API Key / JWT
 - ⚠️ CORS 设为 `*`，生产应限制 origin
 

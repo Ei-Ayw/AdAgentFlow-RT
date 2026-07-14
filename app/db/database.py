@@ -4,6 +4,14 @@ from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from contextlib import contextmanager
 from app.core.config import settings
 
+
+connect_args = None
+if settings.database_url.startswith("postgresql"):
+    connect_args = {
+        "connect_timeout": settings.db_connect_timeout,
+        "options": f"-c statement_timeout={settings.db_statement_timeout_ms}",
+    }
+
 # ============================================================
 # Engine + Session
 # ============================================================
@@ -28,6 +36,10 @@ engine = create_engine(
 
     # 使用 SQLAlchemy 新版行为模式
     future=True,
+
+    # 池耗尽时有界失败，避免请求无限等待；PostgreSQL 同时限制连接和语句时长。
+    pool_timeout=settings.db_pool_timeout,
+    **({"connect_args": connect_args} if connect_args else {}),
 )
 
 # 创建一个“数据库会话工厂”。
@@ -80,7 +92,9 @@ def session_scope():
 def init_db():
     """启动时调用 - CREATE TABLE IF NOT EXISTS"""
         # 显式导入所有模型，让 SQLAlchemy 把表结构注册到 Base.metadata
-    from app.models import task, step, trace, dead_letter, evaluation, metric  # noqa
+    from app.models import (  # noqa
+        task, step, trace, dead_letter, evaluation, metric, outbox, execution,
+    )
 
     # 根据已注册的模型，创建所有不存在的表
     Base.metadata.create_all(bind=engine)

@@ -129,9 +129,9 @@ docker compose up -d
 |------|------|------|
 | FastAPI | http://localhost:8000 | API 主入口 |
 | Dashboard | http://localhost:8000/dashboard | 指标可视化 |
-| RabbitMQ UI | http://localhost:15672 | 队列监控 (adagent / adagent_secret_2026) |
+| RabbitMQ UI | http://localhost:15672 | 队列监控（密码从 `.env` 获取） |
 | Langfuse | http://localhost:3000 | Trace 可观测 |
-| PostgreSQL | localhost:5432 | adagent / adagent_secret_2026 / adagentflow |
+| PostgreSQL | localhost:5432 | `adagent` / `.env` 中的密码 / `adagentflow` |
 | Redis | localhost:6379 | 幂等键 + 消息去重 |
 
 ### 3. 提交第一个任务

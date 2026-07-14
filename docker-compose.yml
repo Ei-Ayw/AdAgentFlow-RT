@@ -1,5 +1,3 @@
-version: "3.9"
-
 # AdAgentFlow 生产级 Docker 编排
 # 包含: FastAPI 服务 / Worker 池 / PostgreSQL / Redis / RabbitMQ / Langfuse / Dashboard
 # 可通过 docker compose up 一键拉起全部依赖
@@ -11,7 +9,7 @@ services:
     environment:
       POSTGRES_DB: adagentflow
       POSTGRES_USER: adagent
-      POSTGRES_PASSWORD: adagent_secret_2026
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_for_local_dev}
     ports:
       - "5432:5432"
     volumes:
@@ -46,7 +44,7 @@ services:
     container_name: adagentflow-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: adagent
-      RABBITMQ_DEFAULT_PASS: adagent_secret_2026
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-change_me_for_local_dev}
       RABBITMQ_DEFAULT_VHOST: adagentflow
     ports:
       - "5672:5672"
@@ -54,7 +52,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -65,13 +63,27 @@ services:
     image: langfuse/langfuse:latest
     container_name: adagentflow-langfuse
     environment:
-      DATABASE_URL: postgresql://adagent:adagent_secret_2026@postgres:5432/adagentflow?schema=langfuse
+      DATABASE_URL: postgresql://adagent:${POSTGRES_PASSWORD:-change_me_for_local_dev}@postgres:5432/adagentflow?schema=langfuse
       NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: langfuse_super_secret_change_in_prod
-      SALT: langfuse_salt_change_in_prod
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change_me_for_local_dev}
+      SALT: ${LANGFUSE_SALT:-change_me_for_local_dev}
       HOSTNAME: 0.0.0.0
     ports:
       - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - adagentflow-net
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://adagent:${POSTGRES_PASSWORD:-change_me_for_local_dev}@postgres:5432/adagentflow
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,9 +98,10 @@ services:
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://adagent:adagent_secret_2026@postgres:5432/adagentflow
+      DATABASE_URL: postgresql://adagent:${POSTGRES_PASSWORD:-change_me_for_local_dev}@postgres:5432/adagentflow
       REDIS_URL: redis://redis:6379/0
-      RABBITMQ_URL: amqp://adagent:adagent_secret_2026@rabbitmq:5672/adagentflow
+      RABBITMQ_URL: amqp://adagent:${RABBITMQ_PASSWORD:-change_me_for_local_dev}@rabbitmq:5672/adagentflow
+      DATABASE_AUTO_CREATE: "false"
     ports:
       - "8000:8000"
     depends_on:
@@ -98,6 +111,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ./:/app
     networks:
@@ -107,13 +122,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: adagentflow-worker-light
     command: ["python", "-m", "app.workers.light_worker"]
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://adagent:adagent_secret_2026@postgres:5432/adagentflow
+      DATABASE_URL: postgresql://adagent:${POSTGRES_PASSWORD:-change_me_for_local_dev}@postgres:5432/adagentflow
       REDIS_URL: redis://redis:6379/0
-      RABBITMQ_URL: amqp://adagent:adagent_secret_2026@rabbitmq:5672/adagentflow
+      RABBITMQ_URL: amqp://adagent:${RABBITMQ_PASSWORD:-change_me_for_local_dev}@rabbitmq:5672/adagentflow
+      DATABASE_AUTO_CREATE: "false"
       WORKER_TYPE: light
       WORKER_CONCURRENCY: "4"
     depends_on:
@@ -123,6 +138,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ./:/app
     deploy:
@@ -138,9 +155,10 @@ services:
     command: ["python", "-m", "app.workers.heavy_worker"]
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://adagent:adagent_secret_2026@postgres:5432/adagentflow
+      DATABASE_URL: postgresql://adagent:${POSTGRES_PASSWORD:-change_me_for_local_dev}@postgres:5432/adagentflow
       REDIS_URL: redis://redis:6379/0
-      RABBITMQ_URL: amqp://adagent:adagent_secret_2026@rabbitmq:5672/adagentflow
+      RABBITMQ_URL: amqp://adagent:${RABBITMQ_PASSWORD:-change_me_for_local_dev}@rabbitmq:5672/adagentflow
+      DATABASE_AUTO_CREATE: "false"
       WORKER_TYPE: heavy
       WORKER_CONCURRENCY: "2"
     depends_on:
@@ -150,8 +168,28 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ./:/app
+    networks:
+      - adagentflow-net
+
+  worker-outbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.workers.outbox_worker"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://adagent:${POSTGRES_PASSWORD:-change_me_for_local_dev}@postgres:5432/adagentflow
+      RABBITMQ_URL: amqp://adagent:${RABBITMQ_PASSWORD:-change_me_for_local_dev}@rabbitmq:5672/adagentflow
+      DATABASE_AUTO_CREATE: "false"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - adagentflow-net
 

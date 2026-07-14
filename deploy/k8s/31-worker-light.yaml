@@ -49,20 +49,20 @@ spec:
                 secretKeyRef:
                   name: adagentflow-secrets
                   key: langfuse_secret_key
-            - name: DATABASE_URL
-              value: "postgresql://adagent:$(DB_PASSWORD)@postgres.adagentflow.svc.cluster.local:5432/adagentflow"
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: adagentflow-secrets
                   key: db_password
-            - name: RABBITMQ_URL
-              value: "amqp://adagent:$(RABBITMQ_PASSWORD)@rabbitmq.adagentflow.svc.cluster.local:5672/adagentflow"
+            - name: DATABASE_URL
+              value: "postgresql://adagent:$(DB_PASSWORD)@postgres.adagentflow.svc.cluster.local:5432/adagentflow"
             - name: RABBITMQ_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: adagentflow-secrets
                   key: rabbitmq_password
+            - name: RABBITMQ_URL
+              value: "amqp://adagent:$(RABBITMQ_PASSWORD)@rabbitmq.adagentflow.svc.cluster.local:5672/adagentflow"
             - name: WORKER_TYPE
               value: "light"
             - name: WORKER_CONCURRENCY

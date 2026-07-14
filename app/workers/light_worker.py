@@ -39,8 +39,16 @@ class LightWorker:
         self.queue = get_queue_client()
         self.orchestrator = get_orchestrator()
         self.concurrency = int(__import__("os").environ.get("WORKER_CONCURRENCY", "4"))
+        db_capacity = settings.db_pool_size + settings.db_max_overflow
+        if self.concurrency < 1 or self.concurrency > db_capacity:
+            raise ValueError(
+                f"WORKER_CONCURRENCY={self.concurrency} 必须在 1..{db_capacity}，"
+                "避免同步 ORM 耗尽连接池"
+            )
         self._running = False
         self._consumer_tasks: List[asyncio.Task] = []
+        self._inflight: set[asyncio.Task] = set()
+        self._slots = asyncio.Semaphore(self.concurrency)
 
     async def run(self):
         """启动消费循环"""
@@ -86,7 +94,13 @@ class LightWorker:
             async for message in q_iter:
                 if not self._running:
                     break
-                await self._handle_message(message, topic)
+                task = asyncio.create_task(self._run_limited(message, topic))
+                self._inflight.add(task)
+                task.add_done_callback(self._inflight.discard)
+
+    async def _run_limited(self, message: AbstractIncomingMessage, topic: str):
+        async with self._slots:
+            await self._handle_message(message, topic)
 
     async def _handle_message(self, message: AbstractIncomingMessage, topic: str):
         """首次执行异常重入队；再次失败拒绝并进入工作队列配置的 DLX。"""
@@ -102,8 +116,14 @@ class LightWorker:
                 task_id = body.get("task_id")
                 step_id = body.get("step_id")
                 payload = body.get("payload", {})
-                logger.info(f"[{step_id}] 收到任务 {task_id}, attempt={payload.get('attempt', 1)}")
-                await self.orchestrator.execute_step(task_id, step_id, payload)
+                with logger.contextualize(
+                    task_id=task_id,
+                    step_id=step_id,
+                    message_id=getattr(message, "message_id", None),
+                    trace_id=payload.get("trace_id"),
+                ):
+                    logger.info(f"收到任务, attempt={payload.get('attempt', 1)}")
+                    await self.orchestrator.execute_step(task_id, step_id, payload)
         except Exception as e:
             # process 上下文已经完成 requeue/reject；这里只吞异常以保持消费循环存活。
             logger.error(f"execute_step 异常，消息已按投递状态处理: {e}")
@@ -112,6 +132,18 @@ class LightWorker:
         self._running = False
         for t in self._consumer_tasks:
             t.cancel()
+        if self._consumer_tasks:
+            await asyncio.gather(*self._consumer_tasks, return_exceptions=True)
+        if self._inflight:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*self._inflight, return_exceptions=True),
+                    timeout=settings.worker_shutdown_timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.warning("优雅停机超时，未完成消息将由 RabbitMQ 重新投递")
+                for task in self._inflight:
+                    task.cancel()
         await close_queue_client()
 
 

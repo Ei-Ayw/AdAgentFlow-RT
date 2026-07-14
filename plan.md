@@ -17,7 +17,7 @@ LLM 输出 JSON 错了怎么修复；
 这个方向和他现在简历里的多 Agent 视频生产、评估纠偏、任务状态机、死信队列、Redis 幂等键等经历是呼应的，但场景换成电商广告，不会显得直接复刻公司项目。
 
 需要使用数据库等服务直接拉取docker，大模型的可以用minmax（本地拉起llm服务也可以，视频生成可以mock）：env": {
-    "ANTHROPIC_AUTH_TOKEN": "sk-cp-5jz0cG8fkE-yRSQcZCTvxtXEHmnwYexM1s9vvRWAsJOaP9LbxuJP0txihlkLmows_Chij9_MI7g2aXC5B7xB_IlpaFOY8jTiX9UpwaHxkyIoo-tJN8crSg8",
+    "ANTHROPIC_AUTH_TOKEN": "__REPLACE_ME__",
     "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M3",
 

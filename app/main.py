@@ -1,9 +1,12 @@
 """FastAPI 主入口"""
 from contextlib import asynccontextmanager
 import asyncio
-from fastapi import FastAPI
+import time
+import uuid
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.sql import text
 
@@ -24,7 +27,8 @@ logger = get_logger()
 async def lifespan(app: FastAPI):
     """FastAPI 启动 / 关闭钩子"""
     logger.info("AdAgentFlow API 启动中 ...")
-    init_db()
+    if settings.database_auto_create:
+        init_db()
     yield
     logger.info("AdAgentFlow API 关闭")
 
@@ -36,10 +40,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def request_logging(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", "")[:128] or uuid.uuid4().hex
+    started = time.perf_counter()
+    with logger.contextualize(message_id=request_id):
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception(f"HTTP {request.method} {request.url.path} 未处理异常")
+            raise
+        duration_ms = round((time.perf_counter() - started) * 1000, 2)
+        logger.info(
+            f"HTTP {request.method} {request.url.path} status={response.status_code} "
+            f"duration_ms={duration_ms}"
+        )
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,16 +86,59 @@ async def root():
     return FileResponse("app/dashboard/static/index.html")
 
 
-@app.get("/health")
-async def health():
-    """健康检查"""
-    from sqlalchemy import text
-    try:
+@app.get("/live")
+async def live():
+    """仅表示 API 进程仍可响应。"""
+    return {"status": "alive", "service": "AdAgentFlow", "version": "1.0.0"}
+
+
+@app.get("/ready")
+async def ready():
+    """真实检查 PostgreSQL、Redis 与 RabbitMQ；失败时返回 503。"""
+    checks = {}
+
+    def check_database() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return {"status": "healthy", "service": "AdAgentFlow", "version": "1.0.0"}
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
+
+    try:
+        await asyncio.to_thread(check_database)
+        checks["postgres"] = "ok"
+    except Exception as exc:
+        checks["postgres"] = f"fail:{type(exc).__name__}"
+
+    try:
+        from app.services.idempotency import get_redis
+
+        redis = await get_redis()
+        await redis.ping()
+        checks["redis"] = "ok"
+    except Exception as exc:
+        checks["redis"] = f"fail:{type(exc).__name__}"
+
+    try:
+        from app.services.queue import get_queue_client
+
+        await get_queue_client().connect()
+        checks["rabbitmq"] = "ok"
+    except Exception as exc:
+        checks["rabbitmq"] = f"fail:{type(exc).__name__}"
+
+    healthy = all(value == "ok" for value in checks.values())
+    payload = {"status": "ready" if healthy else "not_ready", "checks": checks}
+    return JSONResponse(payload, status_code=200 if healthy else 503)
+
+
+@app.get("/health")
+async def health():
+    """兼容旧探针，语义等同 readiness。"""
+    return await ready()
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    """Prometheus scrape endpoint。"""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 if __name__ == "__main__":

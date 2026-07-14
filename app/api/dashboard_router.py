@@ -199,7 +199,7 @@ def agent_metrics(db: Session = Depends(get_db)):
 
 
 @router.get("/health-check")
-def health_check(db: Session = Depends(get_db)):
+async def health_check(db: Session = Depends(get_db)):
     """系统健康自检"""
     checks = {}
     try:
@@ -209,11 +209,18 @@ def health_check(db: Session = Depends(get_db)):
         checks["postgres"] = f"fail: {e}"
 
     try:
-        from app.services.idempotency import get_redis, get_idempotent_count
-        r = await_get_redis = None
-        # ping
+        from app.services.idempotency import get_redis
+        redis = await get_redis()
+        await redis.ping()
         checks["redis"] = "ok"
     except Exception as e:
         checks["redis"] = f"fail: {e}"
+
+    try:
+        from app.services.queue import get_queue_client
+        await get_queue_client().connect()
+        checks["rabbitmq"] = "ok"
+    except Exception as e:
+        checks["rabbitmq"] = f"fail: {type(e).__name__}"
 
     return checks

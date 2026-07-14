@@ -10,6 +10,7 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     task_id = Column(String(64), unique=True, nullable=False, index=True)
+    request_id = Column(String(128), unique=True, index=True)
     status = Column(String(32), nullable=False, default="created", index=True)
     product_name = Column(String(255))
     platform = Column(String(64))

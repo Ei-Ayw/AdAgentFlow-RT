@@ -19,9 +19,13 @@ class Settings(BaseSettings):
     use_mock_llm: bool = False  # 没配模型时自动 mock
 
     # ===== Database =====
-    database_url: str = "postgresql://adagent:adagent_secret_2026@localhost:5432/adagentflow"
+    database_url: str = "postgresql://adagent:change_me@localhost:5432/adagentflow"
     db_pool_size: int = 20
     db_max_overflow: int = 40
+    db_pool_timeout: int = 10
+    db_connect_timeout: int = 5
+    db_statement_timeout_ms: int = 30000
+    database_auto_create: bool = True  # 本地演示；生产应关闭并运行 Alembic
 
     # ===== Redis =====
     redis_url: str = "redis://localhost:6379/0"
@@ -29,13 +33,19 @@ class Settings(BaseSettings):
     redis_execution_lock_ttl: int = 300  # 执行锁租约，防止 Worker 崩溃后长期阻塞
 
     # ===== RabbitMQ =====
-    rabbitmq_url: str = "amqp://adagent:adagent_secret_2026@localhost:5672/adagentflow"
+    rabbitmq_url: str = "amqp://adagent:change_me@localhost:5672/adagentflow"
     rabbitmq_prefetch: int = 8
 
     # ===== 任务配置 =====
     max_retry_count: int = 3
     retry_delays: str = "0,5,15"
     dead_letter_threshold: int = 3
+
+    # ===== Transactional Outbox =====
+    outbox_poll_interval: float = 1.0
+    outbox_batch_size: int = 100
+    outbox_max_attempts: int = 20
+    outbox_lock_timeout: int = 60
 
     # ===== Langfuse (可观测) =====
     langfuse_enabled: bool = False
@@ -45,6 +55,18 @@ class Settings(BaseSettings):
 
     # ===== 日志 =====
     log_level: str = "INFO"
+    log_format: str = "json"
+    service_name: str = "adagentflow"
+
+    # ===== Worker =====
+    worker_shutdown_timeout: int = 30
+
+    # ===== API =====
+    cors_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
+
+    @property
+    def cors_origin_list(self) -> List[str]:
+        return [x.strip() for x in self.cors_origins.split(",") if x.strip()]
 
     # ===== 派生属性 =====
     @property

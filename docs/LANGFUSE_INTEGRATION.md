@@ -26,10 +26,10 @@ langfuse:
   image: langfuse/langfuse:latest
   container_name: adagentflow-langfuse
   environment:
-    DATABASE_URL: postgresql://adagent:adagent_secret_2026@postgres:5432/adagentflow?schema=langfuse
+    DATABASE_URL: postgresql://adagent:${POSTGRES_PASSWORD}@postgres:5432/adagentflow?schema=langfuse
     NEXTAUTH_URL: http://localhost:3000
-    NEXTAUTH_SECRET: langfuse_super_secret_change_in_prod
-    SALT: langfuse_salt_change_in_prod
+    NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+    SALT: ${LANGFUSE_SALT}
   ports:
     - "3000:3000"
 ```

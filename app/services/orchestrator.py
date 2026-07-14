@@ -3,6 +3,7 @@ import time
 import asyncio
 import json
 import datetime
+import uuid
 from typing import Dict, Any, Optional
 
 from app.core.config import settings
@@ -21,6 +22,7 @@ from app.db.database import session_scope
 from app.models.task import Task
 from app.models.step import TaskStep
 from app.models.evaluation import EvaluationResult
+from app.models.execution import StepExecution
 from app.agents import get_agent
 from app.agents.base import AgentResult
 from app.services.queue import get_queue_client
@@ -32,6 +34,7 @@ from app.services.retry import (
     should_retry,
 )
 from app.services.idempotency import acquire_idempotent, release_idempotent
+from app.services.outbox import enqueue_step_event, try_publish_event
 
 logger = get_logger()
 
@@ -51,7 +54,9 @@ class WorkflowOrchestrator:
     # ============================================================
     # 入口 - 创建新任务
     # ============================================================
-    async def create_task(self, product: Dict[str, Any]) -> str:
+    async def create_task(
+        self, product: Dict[str, Any], request_id: Optional[str] = None
+    ) -> str:
         """接收新商品信息，写库，推入队列。
 
         支持反馈重生:
@@ -110,6 +115,7 @@ class WorkflowOrchestrator:
         with session_scope() as db:
             t = Task(
                 task_id=task_id,
+                request_id=request_id,
                 trace_id=trace_id,
                 status=TaskStatus.CREATED.value,
                 product_name=product.get("product_name", ""),
@@ -132,20 +138,21 @@ class WorkflowOrchestrator:
                     status=StepStatus.PENDING.value,
                 )
                 db.add(step)
+            first_event = enqueue_step_event(
+                db,
+                task_id=task_id,
+                step_id=start_step,
+                payload={
+                    "task_id": task_id,
+                    "trace_id": trace_id,
+                    "product": product,
+                    "history": history_override,
+                    "attempt": 1,
+                    **({"failure_feedback": feedback_str} if feedback_str else {}),
+                },
+            )
 
-        await self.queue.connect()
-        await self.queue.publish_step(
-            task_id,
-            start_step,
-            {
-                "task_id": task_id,
-                "trace_id": trace_id,
-                "product": product,
-                "history": history_override,
-                "attempt": 1,
-                **({"failure_feedback": feedback_str} if feedback_str else {}),
-            },
-        )
+        await try_publish_event(first_event, self.queue)
         logger.info(
             f"任务已创建并派发: task_id={task_id}, trace_id={trace_id}, "
             f"start_step={start_step}"
@@ -175,26 +182,25 @@ class WorkflowOrchestrator:
                 s.error_message = None
                 s.started_at = None
                 s.finished_at = None
+            resume_event = enqueue_step_event(
+                db,
+                task_id=task_id,
+                step_id=WORKFLOW_STEPS[0],
+                payload={
+                    "task_id": task_id,
+                    "trace_id": task.trace_id,
+                    "product": task.input_payload or {},
+                    "history": {},
+                    "attempt": 1,
+                    "resumed_from_dead_letter": True,
+                },
+            )
 
         # 清理可能由异常退出遗留的执行租约。
         for step_id in [*WORKFLOW_STEPS, "repair"]:
             await release_idempotent(task_id, step_id)
 
-        # 重新派第一个 step
-        with session_scope() as db:
-            history = self._collect_history(db, task_id)
-        await self.queue.publish_step(
-            task_id,
-            WORKFLOW_STEPS[0],
-            {
-                "task_id": task_id,
-                "trace_id": self._trace_id_of(task_id),
-                "product": self._product_of(task_id),
-                "history": history,
-                "attempt": 1,
-                "resumed_from_dead_letter": True,
-            },
-        )
+        await try_publish_event(resume_event, self.queue)
         return True
 
     # ============================================================
@@ -244,8 +250,15 @@ class WorkflowOrchestrator:
                 "target_step": payload.get("target_step", ""),
             }
 
-            result: AgentResult = await agent.run(ctx, tracer=tracer)
-            await self._handle_agent_result(task_id, step_id, result, payload, tracer)
+            execution_id = self._start_execution(task_id, step_id, payload)
+            with logger.contextualize(execution_id=execution_id):
+                try:
+                    result: AgentResult = await agent.run(ctx, tracer=tracer)
+                    await self._handle_agent_result(task_id, step_id, result, payload, tracer)
+                    self._finish_execution(execution_id, result)
+                except Exception as exc:
+                    self._finish_execution_error(execution_id, exc)
+                    raise
         finally:
             # 正常成功、业务失败和代码异常都释放；进程硬退出则依赖短租约恢复。
             try:
@@ -276,7 +289,17 @@ class WorkflowOrchestrator:
         tracer: Tracer,
     ):
         """step 成功 -> 写库 -> 推进状态 -> 派下一个 step"""
-        # 写 task_step
+        history = dict(payload.get("history", {}))
+        history[step_id] = result.output
+        next_event = None
+        nxt = None if step_id in ("repair", "quality_evaluation") else next_step_or_done(step_id)
+        next_payload = None
+        if nxt is not None:
+            next_payload = dict(payload)
+            next_payload["history"] = history
+            next_payload["attempt"] = 1
+
+        # 节点成功状态与下一节点事件在同一事务提交。
         with session_scope() as db:
             step = (
                 db.query(TaskStep)
@@ -292,13 +315,16 @@ class WorkflowOrchestrator:
                 step.model_name = result.model
                 step.prompt_version = result.prompt_version
                 step.finished_at = datetime.datetime.now(datetime.timezone.utc)
+            if nxt is not None and next_payload is not None:
+                next_event = enqueue_step_event(
+                    db,
+                    task_id=task_id,
+                    step_id=nxt,
+                    payload=next_payload,
+                )
 
         # 注：step.success trace 已由 agent.run() 内部写入
         # 这里只写 task_step 状态推进，trace 不重复写
-
-        # 更新 payload.history
-        history = dict(payload.get("history", {}))
-        history[step_id] = result.output
 
         if step_id == "repair":
             await self._handle_repair_success(task_id, result.output or {}, payload, tracer)
@@ -309,19 +335,12 @@ class WorkflowOrchestrator:
             await self._handle_evaluation(task_id, result.output, tracer)
             return
 
-        # 否则推进到下一个 step
-        nxt = next_step_or_done(step_id)
         if nxt is None:
             # 工作流结束
             await self._finalize_task(task_id, status=TaskStatus.SUCCESS.value)
             return
 
-        # 派下一个 step
-        # 把 history 通过 queue payload 透传
-        next_payload = dict(payload)
-        next_payload["history"] = history
-        next_payload["attempt"] = 1
-        await self.queue.publish_step(task_id, nxt, next_payload)
+        await try_publish_event(next_event, self.queue)
 
         # 任务状态 - 进入 evaluating / running 下一步
         self._transition_task(task_id, TaskStatus.RUNNING.value)
@@ -403,10 +422,23 @@ class WorkflowOrchestrator:
             f"error={result.error_message or ''}, "
             f"raw={result.raw_output[:300] if result.raw_output else ''}"
         )
-        self._transition_step(task_id, step_id, StepStatus.RETRYING.value)
-        await self.queue.publish_step_delayed(
-            task_id, step_id, next_payload, delay_seconds=delay
-        )
+        with session_scope() as db:
+            step = (
+                db.query(TaskStep)
+                .filter(TaskStep.task_id == task_id, TaskStep.step_id == step_id)
+                .first()
+            )
+            if step:
+                assert_transition_step(step.status, StepStatus.RETRYING.value)
+                step.status = StepStatus.RETRYING.value
+            retry_event = enqueue_step_event(
+                db,
+                task_id=task_id,
+                step_id=step_id,
+                payload=next_payload,
+                delay_seconds=delay,
+            )
+        await try_publish_event(retry_event, self.queue)
 
     async def _schedule_repair(
         self,
@@ -427,8 +459,21 @@ class WorkflowOrchestrator:
             else [str(result.repair_payload.get("error_details"))]
         )
         next_payload["attempt"] = 1
-        self._reset_step(task_id, "repair")
-        await self.queue.publish_step(task_id, "repair", next_payload)
+        with session_scope() as db:
+            repair_step = (
+                db.query(TaskStep)
+                .filter(TaskStep.task_id == task_id, TaskStep.step_id == "repair")
+                .first()
+            )
+            if repair_step:
+                self._clear_step_for_rerun(repair_step)
+            repair_event = enqueue_step_event(
+                db,
+                task_id=task_id,
+                step_id="repair",
+                payload=next_payload,
+            )
+        await try_publish_event(repair_event, self.queue)
 
     async def _handle_repair_success(
         self,
@@ -467,19 +512,29 @@ class WorkflowOrchestrator:
                     self._clear_step_for_rerun(downstream)
 
             history = self._collect_history(db, task_id)
+            next_step = next_step_or_done(target_step)
+            next_payload = dict(payload)
+            next_payload.pop("target_step", None)
+            next_payload.pop("original_output", None)
+            next_payload["history"] = history
+            next_payload["attempt"] = 1
+            next_payload["failure_feedback"] = ""
+            next_event = (
+                enqueue_step_event(
+                    db,
+                    task_id=task_id,
+                    step_id=next_step,
+                    payload=next_payload,
+                )
+                if next_step is not None
+                else None
+            )
 
-        next_step = next_step_or_done(target_step)
         if next_step is None:
             await self._finalize_task(task_id, status=TaskStatus.SUCCESS.value)
             return
 
-        next_payload = dict(payload)
-        next_payload.pop("target_step", None)
-        next_payload.pop("original_output", None)
-        next_payload["history"] = history
-        next_payload["attempt"] = 1
-        next_payload["failure_feedback"] = ""
-        await self.queue.publish_step(task_id, next_step, next_payload)
+        await try_publish_event(next_event, self.queue)
         self._transition_task(task_id, TaskStatus.RUNNING.value)
         tracer.record(
             task_id=task_id,
@@ -575,22 +630,28 @@ class WorkflowOrchestrator:
             return
 
         # 脚本变化会使分镜、素材和旧评估全部失效。
-        self._reset_from_step(task_id, "script_generation")
         with session_scope() as db:
+            self._reset_from_step_in_session(db, task_id, "script_generation")
             history = self._collect_history(db, task_id)
-            product = self._product_of(task_id)
-            trace_id = self._trace_id_of(task_id)
-
-        feedback_str = f"score={score}\nissues={issues}\nsuggested_fix={fix}"
-        next_payload = {
-            "task_id": task_id,
-            "trace_id": trace_id,
-            "product": product,
-            "history": history,
-            "attempt": 1,
-            "failure_feedback": feedback_str,
-        }
-        await self.queue.publish_step(task_id, "script_generation", next_payload)
+            task = db.query(Task).filter(Task.task_id == task_id).first()
+            product = task.input_payload if task else {}
+            trace_id = task.trace_id if task else ""
+            feedback_str = f"score={score}\nissues={issues}\nsuggested_fix={fix}"
+            next_payload = {
+                "task_id": task_id,
+                "trace_id": trace_id,
+                "product": product,
+                "history": history,
+                "attempt": 1,
+                "failure_feedback": feedback_str,
+            }
+            eval_retry_event = enqueue_step_event(
+                db,
+                task_id=task_id,
+                step_id="script_generation",
+                payload=next_payload,
+            )
+        await try_publish_event(eval_retry_event, self.queue)
 
     async def _finalize_task(
         self,
@@ -603,11 +664,8 @@ class WorkflowOrchestrator:
             task = db.query(Task).filter(Task.task_id == task_id).first()
             if not task:
                 return
-            try:
+            if task.status != status:
                 assert_transition_task(task.status, status)
-            except Exception as e:
-                logger.warning(f"非法最终状态转移: {task.status} -> {status}: {e}")
-                return
             task.status = status
             task.finished_at = datetime.datetime.now(datetime.timezone.utc)
             outputs = self._collect_history(db, task_id)
@@ -627,40 +685,32 @@ class WorkflowOrchestrator:
     # 内部 helper
     # ============================================================
     def _transition_task(self, task_id: str, to_status: str):
-        try:
-            with session_scope() as db:
-                t = db.query(Task).filter(Task.task_id == task_id).first()
-                if not t:
-                    return
-                try:
-                    assert_transition_task(t.status, to_status)
-                except Exception:
-                    logger.warning(f"任务 {task_id} 非法转移 {t.status} -> {to_status}")
-                    return
-                t.status = to_status
-        except Exception as e:
-            logger.error(f"_transition_task 失败: {e}")
+        with session_scope() as db:
+            task = db.query(Task).filter(Task.task_id == task_id).first()
+            if not task:
+                raise ValueError(f"任务不存在: {task_id}")
+            if task.status == to_status:
+                return True
+            assert_transition_task(task.status, to_status)
+            task.status = to_status
+            return True
 
     def _transition_step(self, task_id: str, step_id: str, to_status: str):
-        try:
-            with session_scope() as db:
-                s = (
-                    db.query(TaskStep)
-                    .filter(TaskStep.task_id == task_id, TaskStep.step_id == step_id)
-                    .first()
-                )
-                if not s:
-                    return
-                try:
-                    assert_transition_step(s.status, to_status)
-                except Exception:
-                    logger.warning(f"step {task_id}/{step_id} 非法转移 {s.status} -> {to_status}")
-                    return
-                s.status = to_status
-                if to_status == StepStatus.RUNNING.value:
-                    s.started_at = datetime.datetime.now(datetime.timezone.utc)
-        except Exception as e:
-            logger.error(f"_transition_step 失败: {e}")
+        with session_scope() as db:
+            step = (
+                db.query(TaskStep)
+                .filter(TaskStep.task_id == task_id, TaskStep.step_id == step_id)
+                .first()
+            )
+            if not step:
+                raise ValueError(f"节点不存在: {task_id}/{step_id}")
+            if step.status == to_status:
+                return True
+            assert_transition_step(step.status, to_status)
+            step.status = to_status
+            if to_status == StepStatus.RUNNING.value:
+                step.started_at = datetime.datetime.now(datetime.timezone.utc)
+            return True
 
     def _max_retry_of(self, task_id: str) -> int:
         with session_scope() as db:
@@ -680,6 +730,72 @@ class WorkflowOrchestrator:
                 .first()
             )
             return step.status if step else None
+
+    def _start_execution(
+        self, task_id: str, step_id: str, payload: Dict[str, Any]
+    ) -> str:
+        execution_id = uuid.uuid4().hex
+        with session_scope() as db:
+            # PostgreSQL 下锁住节点快照，避免多个重复消息并发计算出相同版本号。
+            db.query(TaskStep).filter(
+                TaskStep.task_id == task_id,
+                TaskStep.step_id == step_id,
+            ).with_for_update().first()
+            previous_runs = (
+                db.query(StepExecution)
+                .filter(
+                    StepExecution.task_id == task_id,
+                    StepExecution.step_id == step_id,
+                )
+                .count()
+            )
+            db.add(
+                StepExecution(
+                    execution_id=execution_id,
+                    task_id=task_id,
+                    step_id=step_id,
+                    run_number=previous_runs + 1,
+                    attempt=int(payload.get("attempt", 1)),
+                    status="running",
+                    input_payload=payload,
+                    started_at=datetime.datetime.now(datetime.timezone.utc),
+                )
+            )
+        return execution_id
+
+    def _finish_execution(self, execution_id: str, result: AgentResult) -> None:
+        with session_scope() as db:
+            execution = (
+                db.query(StepExecution)
+                .filter(StepExecution.execution_id == execution_id)
+                .first()
+            )
+            if not execution:
+                return
+            execution.status = "success" if result.success else "failed"
+            execution.output_payload = result.output
+            execution.failure_reason = result.failure_reason
+            execution.error_message = result.error_message
+            execution.model_name = result.model
+            execution.prompt_version = result.prompt_version
+            execution.input_tokens = result.input_tokens
+            execution.output_tokens = result.output_tokens
+            execution.latency_ms = result.latency_ms
+            execution.finished_at = datetime.datetime.now(datetime.timezone.utc)
+
+    def _finish_execution_error(self, execution_id: str, exc: Exception) -> None:
+        with session_scope() as db:
+            execution = (
+                db.query(StepExecution)
+                .filter(StepExecution.execution_id == execution_id)
+                .first()
+            )
+            if not execution:
+                return
+            execution.status = "failed"
+            execution.failure_reason = FailureReason.UNKNOWN_ERROR.value
+            execution.error_message = str(exc)[:2000]
+            execution.finished_at = datetime.datetime.now(datetime.timezone.utc)
 
     @staticmethod
     def _clear_step_for_rerun(step: TaskStep) -> None:
@@ -704,13 +820,16 @@ class WorkflowOrchestrator:
                 self._clear_step_for_rerun(step)
 
     def _reset_from_step(self, task_id: str, start_step: str) -> None:
+        with session_scope() as db:
+            self._reset_from_step_in_session(db, task_id, start_step)
+
+    def _reset_from_step_in_session(self, db, task_id: str, start_step: str) -> None:
         start_idx = WORKFLOW_STEPS.index(start_step)
         reset_ids = set(WORKFLOW_STEPS[start_idx:])
-        with session_scope() as db:
-            steps = db.query(TaskStep).filter(TaskStep.task_id == task_id).all()
-            for step in steps:
-                if step.step_id in reset_ids:
-                    self._clear_step_for_rerun(step)
+        steps = db.query(TaskStep).filter(TaskStep.task_id == task_id).all()
+        for step in steps:
+            if step.step_id in reset_ids:
+                self._clear_step_for_rerun(step)
 
     def _trace_id_of(self, task_id: str) -> str:
         with session_scope() as db:
