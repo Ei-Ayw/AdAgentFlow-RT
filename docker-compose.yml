@@ -1,5 +1,3 @@
-version: "3.9"
-
 # AdAgentFlow 生产级 Docker 编排
 # 包含: FastAPI 服务 / Worker 池 / PostgreSQL / Redis / RabbitMQ / Langfuse / Dashboard
 # 可通过 docker compose up 一键拉起全部依赖
@@ -107,7 +105,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: adagentflow-worker-light
     command: ["python", "-m", "app.workers.light_worker"]
     env_file: .env
     environment:
