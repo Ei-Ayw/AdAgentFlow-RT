@@ -18,20 +18,13 @@ router = APIRouter()
 class SubmitTaskRequest(BaseModel):
     """提交任务请求体"""
 
-    product_name: str = Field(
-        ..., json_schema_extra={"example": "Portable Neck Fan"}
-    )
-    target_user: Optional[str] = Field(
-        "", json_schema_extra={"example": "commuters and outdoor workers"}
-    )
+    product_name: str = Field(..., example="Portable Neck Fan")
+    target_user: Optional[str] = Field("", example="commuters and outdoor workers")
     selling_points: List[str] = Field(
         default_factory=lambda: ["hands-free cooling", "long battery life"],
     )
-    platform: str = Field("TikTok", json_schema_extra={"example": "TikTok"})
-    style: str = Field(
-        "dramatic before-after ad",
-        json_schema_extra={"example": "dramatic before-after ad"},
-    )
+    platform: str = Field("TikTok", example="TikTok")
+    style: str = Field("dramatic before-after ad", example="dramatic before-after ad")
     duration: int = Field(15, ge=5, le=60)
     # 反馈重生: 非空时, 把该 task 的 evaluation 反馈带入新任务
     feedback_for_task_id: Optional[str] = Field(
