@@ -29,3 +29,17 @@ function dispatch() {
 window.addEventListener('hashchange', dispatch);
 window.addEventListener('DOMContentLoaded', dispatch);
 dispatch();
+
+import { onNetworkChange } from '/web/api.js';
+
+const banner = document.createElement('div');
+banner.id = 'offline-banner';
+banner.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;background:#ef4444;color:white;text-align:center;padding:8px;font-size:14px;z-index:100;';
+banner.textContent = '⚠️ 网络中断, 正在尝试恢复…';
+document.body.prepend(banner);
+
+onNetworkChange((online) => {
+    banner.style.display = online ? 'none' : 'block';
+});
+
+window.addEventListener('online', () => location.reload());
