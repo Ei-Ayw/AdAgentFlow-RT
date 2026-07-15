@@ -42,6 +42,8 @@ class SubmitTaskRequest(BaseModel):
         json_schema_extra={"example": "dramatic before-after ad"},
     )
     duration: int = Field(15, ge=5, le=60)
+    product_assets: List[str] = Field(default_factory=list, max_length=12)
+    reference_video: Optional[str] = Field(None, max_length=512)
     # 反馈重生: 非空时, 把该 task 的 evaluation 反馈带入新任务
     feedback_for_task_id: Optional[str] = Field(
         None, description="若不为空, 把该 task 的 evaluation 反馈带入新任务"
@@ -148,6 +150,8 @@ class TaskDetailResponse(BaseModel):
     finished_at: Optional[str]
     selling_points: Optional[List[str]] = None
     target_user: Optional[str] = None
+    product_assets: List[str] = Field(default_factory=list)
+    reference_video: Optional[str] = None
     steps: List[StepStatus] = []
     output_payload: Optional[dict] = None
 
@@ -197,6 +201,8 @@ def get_task(task_id: str, db: Session = Depends(get_db)):
         last_failure_reason=task.last_failure_reason,
         selling_points=task.selling_points or [],
         target_user=task.target_user,
+        product_assets=(task.input_payload or {}).get("product_assets", []),
+        reference_video=(task.input_payload or {}).get("reference_video"),
         created_at=task.created_at.isoformat() if task.created_at else None,
         updated_at=task.updated_at.isoformat() if task.updated_at else None,
         finished_at=task.finished_at.isoformat() if task.finished_at else None,

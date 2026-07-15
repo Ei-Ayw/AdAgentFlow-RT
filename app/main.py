@@ -1,11 +1,13 @@
 """FastAPI 主入口"""
 from contextlib import asynccontextmanager
 import asyncio
+import os
 import time
 import uuid
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.sql import text
@@ -13,12 +15,16 @@ from sqlalchemy.sql import text
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.database import init_db, engine
-from app.api import task_router, dead_letter_router, dashboard_router, trace_router
+from app.api import asset_router, task_router, dead_letter_router, dashboard_router, trace_router
 
 # 显式触发 models 注册，避免被 Python 优化掉
 from app import models  # noqa
 
 logger = get_logger()
+DASHBOARD_ROOT = Path(__file__).resolve().parent / "dashboard" / "static"
+WEB_DIST_ROOT = Path(__file__).resolve().parent / "web" / "dist"
+UPLOAD_ROOT = Path(os.getenv("ADAGENTFLOW_UPLOAD_DIR", "var/uploads")).resolve()
+GENERATED_ROOT = Path(os.getenv("ADAGENTFLOW_GENERATED_DIR", "var/generated")).resolve()
 
 
 # @asynccontextmanager把这个 async def 函数包装成一个异步上下文管理器，FastAPI 会把 yield 之前的代码当作“启动阶段”，yield 之后的代码当作“关闭阶段”
@@ -73,17 +79,36 @@ app.include_router(task_router, prefix="/api/v1/tasks", tags=["tasks"])
 app.include_router(dead_letter_router, prefix="/api/v1/dead-letters", tags=["dead-letters"])
 app.include_router(dashboard_router, prefix="/api/v1/dashboard", tags=["dashboard"])
 app.include_router(trace_router, prefix="/api/v1/traces", tags=["traces"])
+app.include_router(asset_router, prefix="/api/v1/assets", tags=["assets"])
 
-# Dashboard 静态文件
-app.mount("/dashboard", StaticFiles(directory="app/dashboard/static"), name="dashboard")
+# Dashboard 静态文件（旧 Dashboard 目录可能未安装）
+if DASHBOARD_ROOT.is_dir():
+    app.mount("/dashboard", StaticFiles(directory=DASHBOARD_ROOT), name="dashboard")
 
 # 业务用户 SPA
-app.mount("/web", StaticFiles(directory="app/web", html=True), name="web")
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
+GENERATED_ROOT.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_ROOT), name="uploads")
+app.mount("/generated", StaticFiles(directory=GENERATED_ROOT), name="generated")
+app.mount("/web", StaticFiles(directory=WEB_DIST_ROOT, html=True), name="web")
 
 
 @app.get("/")
 async def root():
-    return FileResponse("app/dashboard/static/index.html")
+    dashboard_index = DASHBOARD_ROOT / "index.html"
+    if dashboard_index.is_file():
+        return FileResponse(dashboard_index)
+    return RedirectResponse("/web/")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon_ico():
+    return FileResponse("app/web/favicon.svg", media_type="image/svg+xml")
+
+
+@app.get("/favicon.svg", include_in_schema=False)
+async def favicon_svg():
+    return FileResponse("app/web/favicon.svg", media_type="image/svg+xml")
 
 
 @app.get("/live")

@@ -222,6 +222,9 @@ class TestWorkflowSteps:
             "script_generation",
             "storyboard_planning",
             "material_suggestion",
+            "image_generation",
+            "video_generation",
+            "composition",
             "quality_evaluation",
         ]
 
@@ -234,6 +237,9 @@ class TestWorkflowSteps:
             "script_generation",
             "storyboard_planning",
             "material_suggestion",
+            "image_generation",
+            "video_generation",
+            "composition",
             "quality_evaluation",
         ):
             assert step_id in WORKFLOW_STEPS
@@ -254,7 +260,10 @@ class TestNextStepOrDone:
         assert next_step_or_done("product_analysis") == "script_generation"
         assert next_step_or_done("script_generation") == "storyboard_planning"
         assert next_step_or_done("storyboard_planning") == "material_suggestion"
-        assert next_step_or_done("material_suggestion") == "quality_evaluation"
+        assert next_step_or_done("material_suggestion") == "image_generation"
+        assert next_step_or_done("image_generation") == "video_generation"
+        assert next_step_or_done("video_generation") == "composition"
+        assert next_step_or_done("composition") == "quality_evaluation"
 
     def test_returns_none_for_last_step(self):
         assert next_step_or_done("quality_evaluation") is None

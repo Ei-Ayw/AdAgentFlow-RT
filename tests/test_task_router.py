@@ -19,6 +19,10 @@ SAMPLE_TASK_ROW = {
     "duration": 15,
     "target_user": "commuters",
     "selling_points": ["hands-free cooling", "long battery life"],
+    "input_payload": {
+        "product_assets": ["/uploads/fan-front.jpg"],
+        "reference_video": "/uploads/reference.mp4",
+    },
     "retry_count": 0,
     "max_retry": 3,
     "last_failure_reason": None,
@@ -36,6 +40,26 @@ def seeded_task(sqlite_db):
         session.add(row)
         session.commit()
         session.refresh(row)
+    return row
+
+
+@pytest.fixture()
+def seeded_step(sqlite_db, seeded_task):
+    """插入带业务输出的步骤，验证详情接口可供前端渲染结果卡。"""
+    from app.models.step import TaskStep
+
+    SessionLocal = sqlite_db["session_local"]
+    with SessionLocal() as session:
+        row = TaskStep(
+            task_id=seeded_task.task_id,
+            step_id="script_generation",
+            step_name="广告脚本",
+            status="success",
+            retry_count=0,
+            output_payload={"hook": "3 秒抓住注意力"},
+        )
+        session.add(row)
+        session.commit()
     return row
 
 
@@ -94,3 +118,28 @@ class TestGetTaskDetail:
             db.close()
 
         assert response.target_user == "commuters"
+
+    def test_detail_step_includes_output_payload(self, sqlite_db, seeded_task, seeded_step):
+        """回归：结果卡依赖每个 step 的 output_payload。"""
+        from app.api.task_router import get_task
+
+        db = sqlite_db["session_local"]()
+        try:
+            response = get_task(task_id=seeded_task.task_id, db=db)
+        finally:
+            db.close()
+
+        assert len(response.steps) == 1
+        assert response.steps[0].output_payload == {"hook": "3 秒抓住注意力"}
+
+    def test_detail_includes_creation_assets(self, sqlite_db, seeded_task):
+        from app.api.task_router import get_task
+
+        db = sqlite_db["session_local"]()
+        try:
+            response = get_task(task_id=seeded_task.task_id, db=db)
+        finally:
+            db.close()
+
+        assert response.product_assets == ["/uploads/fan-front.jpg"]
+        assert response.reference_video == "/uploads/reference.mp4"

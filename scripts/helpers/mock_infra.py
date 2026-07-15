@@ -80,11 +80,19 @@ class MockRedis:
 # 2. Mock Database - 进程内 SQLAlchemy 替代
 # ============================================================
 class MockTask:
-    def __init__(self, task_id, trace_id, status, product, max_retry=3):
+    def __init__(self, task_id, trace_id, status, product, max_retry=3, request_id=None):
         self.task_id = task_id
         self.trace_id = trace_id
         self.status = status
         self.product = product
+        self.product_name = product.get("product_name", "")
+        self.platform = product.get("platform", "")
+        self.style = product.get("style", "")
+        self.duration = product.get("duration", 15)
+        self.target_user = product.get("target_user", "")
+        self.selling_points = product.get("selling_points", [])
+        self.input_payload = product
+        self.request_id = request_id
         self.max_retry = max_retry
         self.retry_count = 0
         self.last_failure_reason = None
@@ -610,7 +618,7 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
             for k, v in kwargs.items():
                 setattr(s, k, v)
 
-    async def patched_create_task(self, product):
+    async def patched_create_task(self, product, request_id=None):
         from app.services.tracing import generate_task_id, generate_trace_id
         from app.core.state_machine import WORKFLOW_STEPS, STEP_NAME_DISPLAY
 
@@ -648,7 +656,8 @@ def _install_monkey_patches(ctx: LoadTestContext) -> None:
         task_id = generate_task_id()
         trace_id = generate_trace_id()
         ctx.db.add_task(MockTask(task_id=task_id, trace_id=trace_id,
-                                  status="created", product=product))
+                                  status="created", product=product,
+                                  request_id=request_id))
         for step_id in [*WORKFLOW_STEPS, "repair"]:
             ctx.db.add_step(MockStep(task_id, step_id,
                                       STEP_NAME_DISPLAY.get(step_id, step_id)))

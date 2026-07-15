@@ -20,6 +20,9 @@ logger = get_logger()
 # worker 监听的 topic 列表
 HEAVY_TOPICS = [
     "ad_task.repair",
+    "ad_task.image_generation",
+    "ad_task.video_generation",
+    "ad_task.composition",
 ]
 
 

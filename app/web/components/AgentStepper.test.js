@@ -19,7 +19,7 @@ describe('AgentStepper', () => {
 
     it('shows success check for completed steps', () => {
         const w = mount(AgentStepper, { props: { steps: sampleSteps } });
-        expect(w.text()).toContain('✓');
+        expect(w.find('.arco-icon-check').exists()).toBe(true);
         expect(w.text()).toContain('商品理解');
     });
 

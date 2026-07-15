@@ -121,6 +121,9 @@ WORKFLOW_STEPS = [
     "script_generation",
     "storyboard_planning",
     "material_suggestion",
+    "image_generation",
+    "video_generation",
+    "composition",
     "quality_evaluation",
 ]
 
@@ -129,6 +132,9 @@ STEP_NAME_DISPLAY = {
     "script_generation": "广告脚本 Agent",
     "storyboard_planning": "分镜规划 Agent",
     "material_suggestion": "素材建议 Agent",
+    "image_generation": "关键帧生成",
+    "video_generation": "视频片段生成",
+    "composition": "成片合成",
     "quality_evaluation": "质量评估 Agent",
     "repair": "失败修复 Agent",
 }

@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import json
 import importlib
+from io import BytesIO
 
 import pytest
+from fastapi import HTTPException, UploadFile
+from starlette.datastructures import Headers
 from pydantic import ValidationError
 
 
@@ -23,6 +26,42 @@ async def test_submit_request_rejects_blank_and_oversized_values():
             product_name="Fan",
             selling_points=[f"point-{index}" for index in range(21)],
         )
+    with pytest.raises(ValidationError):
+        SubmitTaskRequest(
+            product_name="Fan",
+            product_assets=[f"/uploads/image-{index}.jpg" for index in range(13)],
+        )
+
+
+async def test_asset_upload_persists_an_image(tmp_path, monkeypatch):
+    asset_router = importlib.import_module("app.api.asset_router")
+    monkeypatch.setattr(asset_router, "UPLOAD_ROOT", tmp_path)
+    upload = UploadFile(
+        filename="product.jpg",
+        file=BytesIO(b"product-image"),
+        headers=Headers({"content-type": "image/jpeg"}),
+    )
+
+    result = await asset_router.upload_asset(upload, kind="product")
+
+    assert result["url"].startswith("/uploads/")
+    assert result["size"] == len(b"product-image")
+    assert (tmp_path / result["url"].split("/")[-1]).read_bytes() == b"product-image"
+
+
+async def test_asset_upload_rejects_wrong_media_type(tmp_path, monkeypatch):
+    asset_router = importlib.import_module("app.api.asset_router")
+    monkeypatch.setattr(asset_router, "UPLOAD_ROOT", tmp_path)
+    upload = UploadFile(
+        filename="notes.txt",
+        file=BytesIO(b"not an image"),
+        headers=Headers({"content-type": "text/plain"}),
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await asset_router.upload_asset(upload, kind="product")
+
+    assert exc.value.status_code == 415
 
 
 async def test_idempotency_key_returns_existing_task(sqlite_db, monkeypatch):

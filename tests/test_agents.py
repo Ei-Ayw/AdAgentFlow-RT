@@ -36,12 +36,15 @@ SAMPLE_PRODUCT = {
 # 1. ALL_AGENTS 注册表
 # ============================================================
 class TestAllAgentsRegistry:
-    def test_all_six_agents_registered(self):
+    def test_all_production_agents_registered(self):
         expected = {
             "product_analysis",
             "script_generation",
             "storyboard_planning",
             "material_suggestion",
+            "image_generation",
+            "video_generation",
+            "composition",
             "quality_evaluation",
             "repair",
         }

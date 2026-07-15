@@ -316,12 +316,23 @@ class TestExecuteStepFailureRetry:
 # 4. end-to-end 完整 5 步
 # ============================================================
 class TestFullWorkflow:
-    async def test_all_five_steps_run_through(self, mock_ctx, sqlite_db):
-        """完整跑通 product_analysis → quality_evaluation，task 收尾。"""
+    async def test_all_production_steps_run_through(self, mock_ctx, sqlite_db):
+        """完整跑通理解、生成媒体、合成与质量评估，task 收尾。"""
         from app.services.orchestrator import get_orchestrator
+        from app.agents.media_agents import UPLOAD_ROOT
+        from PIL import Image
+
+        test_asset = UPLOAD_ROOT / "orchestrator-test-product.jpg"
+        test_asset.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (320, 480), "white").save(test_asset)
+        product = {
+            **SAMPLE_PRODUCT,
+            "duration": 5,
+            "product_assets": [f"/uploads/{test_asset.name}"],
+        }
 
         orch = get_orchestrator()
-        task_id = await orch.create_task(SAMPLE_PRODUCT)
+        task_id = await orch.create_task(product)
         task = mock_ctx.db.tasks[task_id]
 
         current_step = "product_analysis"
@@ -335,7 +346,7 @@ class TestFullWorkflow:
             payload = {
                 "task_id": task_id,
                 "trace_id": task.trace_id,
-                "product": SAMPLE_PRODUCT,
+                "product": product,
                 "history": history,
                 "attempt": 1,
             }
@@ -373,6 +384,9 @@ def _next(step_id: str) -> str:
         "script_generation",
         "storyboard_planning",
         "material_suggestion",
+        "image_generation",
+        "video_generation",
+        "composition",
         "quality_evaluation",
     ]
     if step_id not in order:

@@ -36,6 +36,9 @@ WORKFLOW_TOPICS = [
     "ad_task.script_generation",
     "ad_task.storyboard_planning",
     "ad_task.material_suggestion",
+    "ad_task.image_generation",
+    "ad_task.video_generation",
+    "ad_task.composition",
     "ad_task.quality_evaluation",
     "ad_task.repair",
 ]

@@ -10,4 +10,6 @@ logs/
 *.json
 results/
 data/
+var/
+.DS_Store
 *.zip

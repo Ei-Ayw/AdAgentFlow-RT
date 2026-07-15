@@ -11,6 +11,7 @@ from app.agents.product_analysis_agent import ProductAnalysisAgent
 from app.agents.repair_agent import RepairAgent
 from app.agents.script_agent import ScriptGenerationAgent
 from app.agents.storyboard_agent import StoryboardPlanningAgent
+from app.agents.media_agents import CompositionAgent, ImageGenerationAgent, VideoGenerationAgent
 from app.schemas.agent_schemas import (
     EvaluationSchema,
     MaterialSuggestionSchema,
@@ -57,6 +58,9 @@ AGENT_REGISTRY = AgentRegistry(
         AgentSpec("script_generation", ScriptGenerationAgent, ScriptSchema),
         AgentSpec("storyboard_planning", StoryboardPlanningAgent, StoryboardSchema),
         AgentSpec("material_suggestion", MaterialSuggestionAgent, MaterialSuggestionSchema),
+        AgentSpec("image_generation", ImageGenerationAgent, None, queue_type="heavy", timeout_seconds=120),
+        AgentSpec("video_generation", VideoGenerationAgent, None, queue_type="heavy", timeout_seconds=180),
+        AgentSpec("composition", CompositionAgent, None, queue_type="heavy", timeout_seconds=180),
         AgentSpec("quality_evaluation", QualityEvaluationAgent, EvaluationSchema),
         AgentSpec(
             "repair",
